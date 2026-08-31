@@ -5,12 +5,22 @@ final class MenuBarIconAnimator {
     private weak var button: NSStatusBarButton?
     private var blinkLoop: Task<Void, Never>?
     private var isAwake: Bool?
+    private var isAlert = false
+    private var lastOpenness = MenuBarIcon.asleepOpenness
 
     private static let frameInterval: TimeInterval = 1.0 / 60.0
 
     init(button: NSStatusBarButton?) {
         self.button = button
         setAwake(false)
+    }
+
+    /// The red robot. Redrawn immediately so a stale session shows up
+    /// without waiting for the next blink.
+    func setAlert(_ alert: Bool) {
+        guard alert != isAlert else { return }
+        isAlert = alert
+        draw(lastOpenness)
     }
 
     func setAwake(_ awake: Bool) {
@@ -53,6 +63,7 @@ final class MenuBarIconAnimator {
     }
 
     private func draw(_ openness: CGFloat) {
-        button?.image = MenuBarIcon.render(eyeOpenness: openness)
+        lastOpenness = openness
+        button?.image = MenuBarIcon.render(eyeOpenness: openness, alert: isAlert)
     }
 }

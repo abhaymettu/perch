@@ -31,9 +31,20 @@ enum Shell {
                 return
             }
 
-            process.waitUntilExit()
+            // Drain first, then reap. Waiting first deadlocks the moment output
+            // fills the 64K pipe buffer — `ps -axo args=` clears that on its own.
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
             continuation.resume(returning: String(data: data, encoding: .utf8))
         }
     }
+
+    #if DEBUG
+    /// 200K of output is past the pipe buffer: this hangs forever if the drain
+    /// and the wait are ever swapped back.
+    static func selfCheck() async {
+        let output = await run("/bin/dd", arguments: ["if=/dev/zero", "bs=1000", "count=200"], mergingErrors: false)
+        assert(output?.utf8.count == 200_000, "Shell.run truncated or deadlocked on large output")
+    }
+    #endif
 }

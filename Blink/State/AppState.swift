@@ -5,6 +5,15 @@ import SwiftUI
 final class AppState {
     var servers: [DevServer] = []
     var simulators: [Simulator] = []
+    var sessions: [ClaudeSession] = []
+    var agents: [LaunchAgent] = []
+    var cronJobs: [CronJob] = []
+
+    let usage = UsageMonitor()
+
+    @ObservationIgnored
+    @AppStorage("showDesktopHelpers") var showDesktopHelpers = false
+
     private var isScanning = false
     var isInitialLoad = true
     var lastEvent: BlinkEvent = .idle
@@ -22,11 +31,23 @@ final class AppState {
     // would otherwise stay suppressed forever.
     private var killedPorts: [Int: Int] = [:]
     private var killedSimUDIDs: Set<String> = []
+    private var killedSessionIDs: Set<String> = []
 
     private var relaunched: [Int: RelaunchedServer] = [:]
 
     private(set) var isActive: Bool = false
-    var totalCount: Int { servers.count + simulators.count }
+    var totalCount: Int { servers.count + simulators.count + sessions.count }
+
+    /// Turns the menubar robot red: a session running well past its kind's
+    /// threshold, or a daemon that exited nonzero.
+    var hasProblem: Bool {
+        sessions.contains(where: \.isStale) || agents.contains(where: \.hasFailed)
+    }
+
+    var hasAnything: Bool {
+        !servers.isEmpty || !simulators.isEmpty || !sessions.isEmpty
+            || !agents.isEmpty || !cronJobs.isEmpty
+    }
 
     // MARK: - Blink Events
 
@@ -77,19 +98,29 @@ final class AppState {
 
         async let scannedServers = scanServers()
         async let scannedSims = SimulatorMonitor.scan()
+        async let scannedSessions = ClaudeScanner.scan(includeDesktop: showDesktopHelpers)
+        async let scannedAgents = LaunchAgentScanner.scan()
+        async let scannedCron = CronScanner.scan()
 
         let (newServers, newSims) = await (scannedServers, scannedSims)
+        let (newSessions, newAgents, newCron) = await (scannedSessions, scannedAgents, scannedCron)
 
         let activePIDs = Set(newServers.map(\.pid))
         killedPIDs = killedPIDs.intersection(activePIDs)
         killedPorts = killedPorts.filter { activePIDs.contains($0.value) }
         let activeSimUDIDs = Set(newSims.map(\.id))
         killedSimUDIDs = killedSimUDIDs.intersection(activeSimUDIDs)
+        killedSessionIDs = killedSessionIDs.intersection(Set(newSessions.map(\.id)))
 
         let filteredServers = newServers.filter {
             !killedPIDs.contains($0.pid) && killedPorts[$0.port] == nil
         }
         let filteredSims = newSims.filter { !killedSimUDIDs.contains($0.id) }
+        let filteredSessions = newSessions.filter { !killedSessionIDs.contains($0.id) }
+
+        if sessions != filteredSessions { sessions = filteredSessions }
+        if agents != newAgents { agents = newAgents }
+        if cronJobs != newCron { cronJobs = newCron }
 
         clearStaleFailures(among: filteredServers)
         let mergedServers = preservingRestartingRows(filteredServers)
@@ -158,6 +189,24 @@ final class AppState {
             servers.removeAll { $0.port == server.port }
         }
         killProcessTree(pid: server.pid)
+    }
+
+    func killSession(_ session: ClaudeSession) {
+        lastEvent = .killed
+        killedSessionIDs.insert(session.id)
+        withAnimation(.easeOut(duration: 0.3)) {
+            sessions.removeAll { $0.id == session.id }
+        }
+        killProcessTree(pid: session.pid)
+    }
+
+    func revealSession(_ session: ClaudeSession) {
+        guard !session.workingDirectory.isEmpty else { return }
+        reveal(path: session.workingDirectory)
+    }
+
+    func reveal(path: String) {
+        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
     }
 
     func dismissFailed(_ server: DevServer) {

@@ -1,11 +1,15 @@
 import SwiftUI
 
 struct MenuBarView: View {
-    static let panelSize = CGSize(width: 320, height: 440)
+    static let panelSize = CGSize(width: 320, height: 560)
 
     @Environment(AppState.self) private var appState
 
     @State private var page: Page = .main
+
+    /// Comma-joined section titles. A Set is not @AppStorage-encodable and a
+    /// five-item list does not justify a Codable wrapper.
+    @AppStorage("collapsedSections") private var collapsedRaw = ""
 
     enum Page {
         case main, settings, about
@@ -44,6 +48,12 @@ private extension MenuBarView {
         VStack(spacing: 0) {
             header
             PanelDivider()
+
+            if let block = appState.usage.block {
+                UsageStrip(block: block)
+                PanelDivider()
+            }
+
             content
             PanelDivider()
             footer
@@ -76,18 +86,17 @@ private extension MenuBarView {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .transition(.opacity)
-        } else if appState.servers.isEmpty && appState.simulators.isEmpty {
+        } else if !appState.hasAnything {
             EmptyStateView()
                 .transition(.opacity.combined(with: .scale(scale: 0.97)))
         } else {
             ScrollView {
                 VStack(spacing: 12) {
-                    if !appState.servers.isEmpty {
-                        serverSection
-                    }
-                    if !appState.simulators.isEmpty {
-                        simulatorSection
-                    }
+                    claudeSection
+                    serverSection
+                    daemonSection
+                    cronSection
+                    simulatorSection
                 }
                 .padding(12)
             }
@@ -106,42 +115,75 @@ private extension MenuBarView {
         }
     }
 
-    var serverSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionHeader(
-                "DEV SERVERS",
-                icon: "server.rack",
-                action: appState.servers.count > 1 ? "Stop All" : nil
-            ) {
-                appState.stopAllServers()
-            }
-
-            ForEach(appState.servers) { server in
-                ServerRowView(server: server)
-                    .transition(.asymmetric(
-                        insertion: .move(edge: .top).combined(with: .opacity),
-                        removal: .move(edge: .trailing).combined(with: .opacity)
-                    ))
-            }
+    @ViewBuilder
+    var claudeSection: some View {
+        section("CLAUDE", icon: "brain", items: appState.sessions) { session in
+            ClaudeSessionRowView(session: session)
         }
     }
 
-    var simulatorSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionHeader(
-                "SIMULATORS",
-                icon: "iphone",
-                action: appState.simulators.count > 1 ? "Shut Down All" : nil
-            ) {
-                appState.shutDownAllSimulators()
-            }
+    @ViewBuilder
+    var serverSection: some View {
+        section(
+            "DEV SERVERS",
+            icon: "server.rack",
+            items: appState.servers,
+            action: appState.servers.count > 1 ? "Stop All" : nil,
+            perform: { appState.stopAllServers() }
+        ) { server in
+            ServerRowView(server: server)
+        }
+    }
 
-            ForEach(appState.simulators) { simulator in
-                SimulatorRowView(simulator: simulator)
-                    .transition(.asymmetric(
-                        insertion: .move(edge: .top).combined(with: .opacity),
-                        removal: .move(edge: .trailing).combined(with: .opacity)
-                    ))
+    @ViewBuilder
+    var daemonSection: some View {
+        section("DAEMONS", icon: "gearshape.2", items: appState.agents) { agent in
+            LaunchAgentRowView(agent: agent)
+        }
+    }
+
+    @ViewBuilder
+    var cronSection: some View {
+        section("CRON", icon: "clock", items: appState.cronJobs) { job in
+            CronJobRowView(job: job)
+        }
+    }
+
+    @ViewBuilder
+    var simulatorSection: some View {
+        section(
+            "SIMULATORS",
+            icon: "iphone",
+            items: appState.simulators,
+            action: appState.simulators.count > 1 ? "Shut Down All" : nil,
+            perform: { appState.shutDownAllSimulators() }
+        ) { simulator in
+            SimulatorRowView(simulator: simulator)
+        }
+    }
+
+    @ViewBuilder
+    func section<Item: Identifiable, Row: View>(
+        _ title: String,
+        icon: String,
+        items: [Item],
+        action: String? = nil,
+        perform: @escaping () -> Void = {},
+        @ViewBuilder row: @escaping (Item) -> Row
+    ) -> some View {
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                sectionHeader(title, icon: icon, count: items.count, action: action, perform: perform)
+
+                if !isCollapsed(title) {
+                    ForEach(items) { item in
+                        row(item)
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .top).combined(with: .opacity),
+                                removal: .move(edge: .trailing).combined(with: .opacity)
+                            ))
+                    }
+                }
             }
         }
     }
@@ -149,10 +191,13 @@ private extension MenuBarView {
     func sectionHeader(
         _ title: String,
         icon: String,
+        count: Int,
         action: String?,
         perform: @escaping () -> Void
     ) -> some View {
-        HStack(spacing: 4) {
+        let collapsed = isCollapsed(title)
+
+        return HStack(spacing: 4) {
             Image(systemName: icon)
                 .font(.system(size: 9))
                 .frame(width: 12)
@@ -163,9 +208,15 @@ private extension MenuBarView {
                 .tracking(0.8)
                 .foregroundStyle(.secondary.opacity(0.6))
 
+            if collapsed {
+                Text(verbatim: "\(count)")
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.secondary.opacity(0.45))
+            }
+
             Spacer()
 
-            if let action {
+            if let action, !collapsed {
                 Button(action: perform) {
                     Text(action)
                         .font(.system(size: 10, weight: .medium))
@@ -175,8 +226,33 @@ private extension MenuBarView {
                 .buttonStyle(.plain)
                 .transition(.opacity)
             }
+
+            Image(systemName: "chevron.down")
+                .font(.system(size: 8, weight: .semibold))
+                .foregroundStyle(.secondary.opacity(0.5))
+                .rotationEffect(.degrees(collapsed ? -90 : 0))
         }
         .padding(.horizontal, 4)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.easeOut(duration: 0.2)) { toggleCollapsed(title) }
+        }
+    }
+
+    // MARK: - Collapse
+
+    func isCollapsed(_ title: String) -> Bool {
+        collapsedRaw.split(separator: ",").contains(Substring(title))
+    }
+
+    func toggleCollapsed(_ title: String) {
+        var titles = collapsedRaw.split(separator: ",").map(String.init)
+        if let index = titles.firstIndex(of: title) {
+            titles.remove(at: index)
+        } else {
+            titles.append(title)
+        }
+        collapsedRaw = titles.joined(separator: ",")
     }
 
     var footer: some View {

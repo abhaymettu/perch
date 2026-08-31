@@ -52,7 +52,7 @@ struct WelcomeView: View {
                 .font(.system(size: 28, weight: .bold))
                 .padding(.bottom, 8)
 
-            Text("Keeps an eye on your dev servers\nand simulators.")
+            Text("Keeps an eye on your Claude sessions,\ndev servers, daemons and simulators.")
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

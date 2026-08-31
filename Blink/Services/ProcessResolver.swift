@@ -135,6 +135,21 @@ enum ProcessResolver {
         return parent > 1 ? parent : nil
     }
 
+    /// macOS `ps` has no `etimes`, and `lstart` pads single-digit days
+    /// ambiguously. `p_starttime` is exact.
+    static func startTime(of pid: Int) -> Date? {
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, Int32(pid)]
+        var info = kinfo_proc()
+        var size = MemoryLayout<kinfo_proc>.stride
+
+        guard sysctl(&mib, 4, &info, &size, nil, 0) == 0, size > 0 else { return nil }
+
+        let started = info.kp_proc.p_starttime
+        guard started.tv_sec > 0 else { return nil }
+
+        return Date(timeIntervalSince1970: Double(started.tv_sec) + Double(started.tv_usec) / 1_000_000)
+    }
+
     static func workingDirectory(pid: Int) async -> String {
         let output = await Shell.run(
             "/usr/sbin/lsof",
