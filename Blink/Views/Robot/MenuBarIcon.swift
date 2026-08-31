@@ -7,9 +7,9 @@ enum MenuBarIcon {
     static let asleepOpenness = RobotGeometry.eyeOpenness(for: .halfClosed)
 
     @MainActor
-    static func render(eyeOpenness: CGFloat) -> NSImage {
+    static func render(eyeOpenness: CGFloat, alert: Bool = false) -> NSImage {
         let size = NSSize(width: iconSize, height: iconSize)
-        let view = MenuBarRobot(size: iconSize, eyeOpenness: eyeOpenness)
+        let view = MenuBarRobot(size: iconSize, eyeOpenness: eyeOpenness, alert: alert)
 
         let renderer = ImageRenderer(content: view)
         renderer.scale = 2.0
@@ -19,7 +19,9 @@ enum MenuBarIcon {
         }
 
         let image = NSImage(cgImage: cgImage, size: size)
-        image.isTemplate = true
+        // A template image is force-tinted to the menubar's own colour, so
+        // the alert red only survives outside template mode.
+        image.isTemplate = !alert
         return image
     }
 }
@@ -27,6 +29,7 @@ enum MenuBarIcon {
 private struct MenuBarRobot: View {
     let size: CGFloat
     let eyeOpenness: CGFloat
+    let alert: Bool
 
     private var scale: CGFloat { size / RobotGeometry.baseSize }
 
@@ -62,7 +65,7 @@ private struct MenuBarRobot: View {
                 facePath.addPath(Path(roundedRect: eyeRect, cornerRadius: eyeCornerRadius))
             }
 
-            context.fill(facePath, with: .color(.black), style: FillStyle(eoFill: true))
+            context.fill(facePath, with: .color(alert ? .alert : .black), style: FillStyle(eoFill: true))
         }
         .frame(width: size, height: size)
     }

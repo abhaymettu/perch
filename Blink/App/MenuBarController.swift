@@ -16,11 +16,20 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         // drops its labels to near-black and they vanish into the material.
         NSApp.appearance = NSAppearance(named: .darkAqua)
 
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        #if DEBUG
+        ClaudeScanner.selfCheck()
+        Task { await Shell.selfCheck() }
+        #endif
+
+        // Variable length: the quota time sits beside the robot as the
+        // button's title, which a square item would clip.
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem.button {
             button.action = #selector(togglePanel)
             button.target = self
+            button.imagePosition = .imageLeading
+            button.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
         }
 
         iconAnimator = MenuBarIconAnimator(button: statusItem.button)
@@ -135,11 +144,22 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         }
     }
 
+    @MainActor
+    private func updateQuotaTitle() {
+        // Empty string, not nil: AppKit keeps the old title otherwise.
+        let title = appState.usage.block.map { " \($0.remainingLabel)" } ?? ""
+        if statusItem.button?.title != title {
+            statusItem.button?.title = title
+        }
+    }
+
     private func startIconUpdates() {
         Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
                 self.iconAnimator.setAwake(self.appState.isActive)
+                self.iconAnimator.setAlert(self.appState.hasProblem)
+                self.updateQuotaTitle()
             }
         }
     }

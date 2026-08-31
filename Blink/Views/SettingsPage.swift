@@ -4,6 +4,7 @@ struct SettingsPage: View {
     let isVisible: Bool
     let back: () -> Void
 
+    @AppStorage("showDesktopHelpers") private var showDesktopHelpers = false
     @State private var launchAtLogin = LoginItem.isEnabled
     @State private var failure: String?
     @State private var accessibilityTrusted = Accessibility.isTrusted
@@ -14,6 +15,9 @@ struct SettingsPage: View {
             PanelDivider()
 
             PanelToggleRow("Start at login", isOn: $launchAtLogin)
+            PanelDivider()
+            // ~15 Electron helpers, all noise. Off unless asked for.
+            PanelToggleRow("Show Claude Desktop", isOn: $showDesktopHelpers)
 
             if let failure {
                 Text(failure)
