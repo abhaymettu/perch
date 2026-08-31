@@ -30,14 +30,13 @@ enum ClaudeScanner {
 
     static func parse(_ output: String) -> [RawProcess] {
         output.split(separator: "\n").compactMap { line in
-            let fields = line.split(separator: " ", omittingEmptySubsequences: true)
-            guard fields.count >= 3,
+            // maxSplits: 2 leaves the arguments — which contain spaces — whole.
+            let fields = line.split(separator: " ", maxSplits: 2, omittingEmptySubsequences: true)
+            guard fields.count == 3,
                   let pid = Int(fields[0]),
                   let ppid = Int(fields[1]) else { return nil }
 
-            // Rejoin from the third field on — arguments contain spaces.
-            guard let argsStart = line.range(of: fields[2]) else { return nil }
-            return RawProcess(pid: pid, ppid: ppid, args: String(line[argsStart.lowerBound...]))
+            return RawProcess(pid: pid, ppid: ppid, args: String(fields[2]))
         }
     }
 
