@@ -115,14 +115,12 @@ private extension MenuBarView {
         }
     }
 
-    @ViewBuilder
     var claudeSection: some View {
         section("CLAUDE", icon: "brain", items: appState.sessions) { session in
             ClaudeSessionRowView(session: session)
         }
     }
 
-    @ViewBuilder
     var serverSection: some View {
         section(
             "DEV SERVERS",
@@ -135,21 +133,18 @@ private extension MenuBarView {
         }
     }
 
-    @ViewBuilder
     var daemonSection: some View {
         section("DAEMONS", icon: "gearshape.2", items: appState.agents) { agent in
             LaunchAgentRowView(agent: agent)
         }
     }
 
-    @ViewBuilder
     var cronSection: some View {
         section("CRON", icon: "clock", items: appState.cronJobs) { job in
             CronJobRowView(job: job)
         }
     }
 
-    @ViewBuilder
     var simulatorSection: some View {
         section(
             "SIMULATORS",
