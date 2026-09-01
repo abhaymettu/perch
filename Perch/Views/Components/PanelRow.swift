@@ -49,8 +49,6 @@ struct PanelRow: View {
     private let glyph: String?
     private let action: () -> Void
 
-    @State private var isHovered = false
-
     init(_ title: String, detail: String? = nil, glyph: String? = "chevron.right", action: @escaping () -> Void) {
         self.title = title
         self.detail = detail
@@ -79,13 +77,9 @@ struct PanelRow: View {
                         .foregroundStyle(Color.inkFaint)
                 }
             }
-            .padding(.horizontal, HoverRowStyle.horizontalPadding)
-            .padding(.vertical, 7)
-            .contentShape(Rectangle())
-            .background(isHovered ? Color.white.opacity(0.05) : .clear)
+            .hoverRow()
         }
         .buttonStyle(.plain)
-        .onHover { isHovered = $0 }
     }
 }
 
@@ -112,7 +106,7 @@ struct PanelStatusRow: View {
                 .foregroundStyle(Color.inkMuted)
         }
         .padding(.horizontal, HoverRowStyle.horizontalPadding)
-        .padding(.vertical, 7)
+        .padding(.vertical, 6)
     }
 }
 
