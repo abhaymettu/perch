@@ -8,10 +8,10 @@ enum WelcomeWindowController {
         guard window == nil else { return }
 
         let hostingView = NSHostingView(rootView: WelcomeView())
-        hostingView.frame = NSRect(x: 0, y: 0, width: 320, height: 380)
+        hostingView.frame = NSRect(origin: .zero, size: WelcomeView.size)
 
         let w = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 320, height: 380),
+            contentRect: NSRect(origin: .zero, size: WelcomeView.size),
             styleMask: [.titled, .fullSizeContentView],
             backing: .buffered,
             defer: false

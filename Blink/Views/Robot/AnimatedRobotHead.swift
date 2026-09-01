@@ -39,9 +39,14 @@ struct AnimatedRobotHead: View {
 
     private func handleEvent(_ event: AppState.BlinkEvent) {
         switch event {
+        // Idle used to park the eyes at .halfClosed, and the blink timer skips
+        // any eyeState that is already closing — so the mascot of an app called
+        // Blink stopped blinking for exactly as long as nothing was happening,
+        // sitting on two flat dashes. Idle is open; the glance and blink loops
+        // are what carry it.
         case .idle:
             withAnimation(.easeInOut(duration: 0.4)) {
-                eyeState = .halfClosed
+                eyeState = .open
                 tilt = 0
             }
 

@@ -35,18 +35,18 @@ struct SimulatorRowView: View {
         HStack(spacing: 0) {
             ColorBar(color: barColor, isWorking: isRestarting)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(simulator.runningApp?.displayName ?? simulator.name)
-                    .font(.system(size: 12, weight: .medium))
-                    .lineLimit(1)
+            Text(simulator.runningApp?.displayName ?? simulator.name)
+                .font(.rowTitle)
+                .foregroundStyle(Color.ink)
+                .lineLimit(1)
 
-                subtitle
-            }
-
-            Spacer()
+            Spacer(minLength: 8)
 
             if isHovered && !isRestarting {
                 actions
+                    .transition(.opacity)
+            } else {
+                subtitle
                     .transition(.opacity)
             }
         }
@@ -69,18 +69,18 @@ private extension SimulatorRowView {
     var subtitle: some View {
         if isRestarting {
             Text("relaunching…")
-                .font(.system(size: 10))
-                .foregroundStyle(.secondary)
+                .font(.rowMeta)
+                .foregroundStyle(Color.inkFaint)
                 .lineLimit(1)
         } else if failureMessage != nil {
             Text("failed to relaunch")
-                .font(.system(size: 10))
+                .font(.rowMeta)
                 .foregroundStyle(Color.alert)
                 .lineLimit(1)
         } else {
             Text("\(simulator.name) · \(simulator.runtime)")
-                .font(.system(size: 10))
-                .foregroundStyle(.secondary)
+                .font(.rowMeta)
+                .foregroundStyle(Color.inkFaint)
                 .lineLimit(1)
         }
     }

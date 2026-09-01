@@ -9,6 +9,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     private let scrollActivity = ScrollActivity()
     private var scrollMonitor: Any?
     private weak var panelContentView: NSView?
+    private var panelTopLeft: NSPoint = .zero
     @AppStorage("hasLaunchedBefore") private var hasLaunchedBefore = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -18,7 +19,15 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
 
         #if DEBUG
         ClaudeScanner.selfCheck()
+        LimitsMonitor.selfCheck()
+        FailureBox.selfCheck()
         Task { await Shell.selfCheck() }
+
+        if PreviewHarness.isEnabled {
+            NSApp.setActivationPolicy(.regular)
+            PreviewHarness.present()
+            return
+        }
         #endif
 
         // Variable length: the quota time sits beside the robot as the
@@ -34,11 +43,15 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
 
         iconAnimator = MenuBarIconAnimator(button: statusItem.button)
 
-        let hostingView = NSHostingView(rootView:
+        // `.preferredContentSize` is what makes the panel as tall as its
+        // content: AppKit resizes the window whenever SwiftUI's ideal size
+        // changes. Without it the empty state gets the same 640pt as a full one.
+        let hostingController = NSHostingController(rootView:
             MenuBarView()
                 .environment(appState)
                 .environment(scrollActivity)
         )
+        hostingController.sizingOptions = [.preferredContentSize]
 
         panel = NSPanel(
             contentRect: NSRect(origin: .zero, size: MenuBarView.panelSize),
@@ -46,8 +59,8 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
-        panel.contentView = hostingView
-        panelContentView = hostingView
+        panel.contentViewController = hostingController
+        panelContentView = hostingController.view
         panel.isFloatingPanel = true
         panel.level = .popUpMenu
         panel.isOpaque = false
@@ -57,6 +70,17 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         panel.isMovable = false
         panel.hasShadow = true
         panel.isReleasedWhenClosed = false
+
+        // AppKit resizes a window about its bottom-left corner; the panel hangs
+        // from the menu bar, so every content-driven resize has to re-pin the top.
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didResizeNotification,
+            object: panel,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self, self.panel.isVisible, self.panelTopLeft != .zero else { return }
+            self.panel.setFrameTopLeftPoint(self.panelTopLeft)
+        }
 
         startIconUpdates()
 
@@ -78,14 +102,13 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
               let buttonWindow = button.window else { return }
 
         let buttonFrame = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
-        let panelWidth = MenuBarView.panelSize.width
         var x = buttonFrame.minX
         if let screen = buttonWindow.screen {
-            x = min(x, screen.visibleFrame.maxX - panelWidth - 8)
+            x = min(x, screen.visibleFrame.maxX - MenuBarView.panelWidth - 8)
         }
-        let y = buttonFrame.minY - 4
+        panelTopLeft = NSPoint(x: x, y: buttonFrame.minY - 4)
 
-        panel.setFrameTopLeftPoint(NSPoint(x: x, y: y))
+        panel.setFrameTopLeftPoint(panelTopLeft)
         panel.alphaValue = 0
         panel.makeKeyAndOrderFront(nil)
         panel.orderFrontRegardless()
@@ -147,7 +170,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     @MainActor
     private func updateQuotaTitle() {
         // Empty string, not nil: AppKit keeps the old title otherwise.
-        let title = appState.usage.block.map { " \($0.remainingLabel)" } ?? ""
+        let title = appState.usage.menuBarTitle
         if statusItem.button?.title != title {
             statusItem.button?.title = title
         }

@@ -1,63 +1,53 @@
 import SwiftUI
 
+/// Nothing running. Blink's whole job is watching, so the empty state says the
+/// watch is still on rather than just showing a blank panel.
 struct EmptyStateView: View {
     @State private var floatOffset: CGFloat = 0
-    @State private var zOpacity1: Double = 0
-    @State private var zOpacity2: Double = 0
-    @State private var zOpacity3: Double = 0
-    @State private var zOffset1: CGFloat = 0
-    @State private var zOffset2: CGFloat = 0
-    @State private var zOffset3: CGFloat = 0
+    @State private var isSnoozing = false
 
     var body: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: 3) {
             ZStack {
-                floatingZ(opacity: zOpacity1, offset: zOffset1, x: 18, delay: 0)
-                floatingZ(opacity: zOpacity2, offset: zOffset2, x: 26, delay: 0.8)
-                floatingZ(opacity: zOpacity3, offset: zOffset3, x: 22, delay: 1.6)
+                floatingZ(x: 19, y: -13, size: 9, delay: 0)
+                floatingZ(x: 26, y: -20, size: 11, delay: 0.7)
+                floatingZ(x: 34, y: -28, size: 13, delay: 1.4)
 
-                RobotHead(size: 48, eyeState: .closed, pupilOffset: .zero)
+                RobotHead(size: 46, eyeState: .closed, pupilOffset: .zero)
                     .offset(y: floatOffset)
             }
-            .frame(height: 56)
+            .frame(height: 58)
 
             Text("All quiet here")
-                .font(.headline)
-                .foregroundStyle(.secondary)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.ink)
+
+            Text("No sessions, servers or simulators running.")
+                .font(.system(size: 10.5))
+                .foregroundStyle(Color.inkFaint)
+                .multilineTextAlignment(.center)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
-        .onAppear { startAnimations() }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 34)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
+                floatOffset = -4
+            }
+            isSnoozing = true
+        }
     }
 
-    private func floatingZ(opacity: Double, offset: CGFloat, x: CGFloat, delay: Double) -> some View {
+    /// One repeating animation per z, offset by a delay. The previous version
+    /// cancelled its own loop with a timed reset and played exactly once.
+    private func floatingZ(x: CGFloat, y: CGFloat, size: CGFloat, delay: Double) -> some View {
         Text("z")
-            .font(.system(size: 10, weight: .medium))
-            .foregroundStyle(.secondary)
-            .opacity(opacity)
-            .offset(x: x, y: -20 + offset)
-    }
-
-    private func startAnimations() {
-        withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
-            floatOffset = -4
-        }
-
-        animateZ(opacity: $zOpacity1, offset: $zOffset1, delay: 0)
-        animateZ(opacity: $zOpacity2, offset: $zOffset2, delay: 0.8)
-        animateZ(opacity: $zOpacity3, offset: $zOffset3, delay: 1.6)
-    }
-
-    private func animateZ(opacity: Binding<Double>, offset: Binding<CGFloat>, delay: Double) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: false)) {
-                opacity.wrappedValue = 0.6
-                offset.wrappedValue = -20
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                opacity.wrappedValue = 0
-                offset.wrappedValue = 0
-            }
-        }
+            .font(.system(size: size, weight: .medium))
+            .foregroundStyle(Color.inkFaint)
+            .offset(x: x, y: y)
+            .opacity(isSnoozing ? 0 : 0.75)
+            .animation(
+                .easeOut(duration: 2.1).repeatForever(autoreverses: false).delay(delay),
+                value: isSnoozing
+            )
     }
 }

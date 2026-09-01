@@ -12,8 +12,11 @@ struct RobotHead: View {
     private var scale: CGFloat { size / RobotGeometry.baseSize }
     private var eyeOpenness: CGFloat { RobotGeometry.eyeOpenness(for: eyeState) }
 
-    private let faceColor = Color.white.opacity(0.28)
-    private let eyeColor = Color.white.opacity(0.80)
+    /// A 0.28 fill with no edge left the head a smudge that the eyes floated
+    /// on. The stroke is what gives it a silhouette at 20pt.
+    private let faceColor = Color.white.opacity(0.13)
+    private let faceEdgeColor = Color.white.opacity(0.34)
+    private let eyeColor = Color.white.opacity(0.92)
 
     var body: some View {
         Canvas { context, canvasSize in
@@ -29,6 +32,7 @@ struct RobotHead: View {
             )
             let facePath = Path(roundedRect: faceRect, cornerRadius: RobotGeometry.faceCornerRadiusRatio * scale)
             context.fill(facePath, with: .color(faceColor))
+            context.stroke(facePath, with: .color(faceEdgeColor), lineWidth: max(1, scale))
 
             let eyeCenterY = faceRect.midY - RobotGeometry.eyeCenterOffsetRatio * scale + pupilOffset.y * scale
             let eyeSpacing = RobotGeometry.eyeSpacingRatio * scale
