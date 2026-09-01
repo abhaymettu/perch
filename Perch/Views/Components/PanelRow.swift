@@ -203,7 +203,7 @@ struct PanelPageHeader: View {
 
             Spacer()
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 12)
         .padding(.top, 11)
         .padding(.bottom, 10)
     }
