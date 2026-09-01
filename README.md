@@ -19,7 +19,10 @@ Claude usage limit is left.
   <img src=".github/screenshot.png" width="360" alt="The Perch panel: usage strip, Claude sessions, dev servers, daemons and simulators" />
 </p>
 
-## Features
+Everything above was four things before: a usage-ring app, a SwiftBar plugin, `ps | grep claude`,
+and no answer at all for which agents were still running. Perch is one panel, one poll, one icon.
+
+## What it watches
 
 - **Claude Code sessions** — one row per session, not per process, grouped by kind and working
   directory. Remote-control lanes, interactive terminals, and headless `--print` runs are told
@@ -27,16 +30,29 @@ Claude usage limit is left.
   for seventeen hours is not.
 - **Usage limits** — session and weekly windows as percent-of-limit, with the time until each
   resets. The leading number rides in the menu bar next to the owl.
-- **Background agents** — every LaunchAgent in `~/Library/LaunchAgents`, with its schedule and
-  whether it is running, idle, or has failed. Read-only on purpose (see below).
-- **Cron** — active crontab lines with their schedule. Auto-hides when the crontab is empty.
-- **Live server monitoring** — every dev server running, with port, framework and project name
-- **Restart without leaving the menu bar** — stop and relaunch in one click
-- **Failures explained in place** — when a restart doesn't come back, the row shows why
-- **Framework detection** — Next.js, Vite, Nuxt, Remix, Astro, Django, Flask, Rails and more
-- **Simulator tracking** — booted simulators with device, runtime, and the app running inside
-- **Collapsible sections** — each section folds away and remembers that it did
-- **Start at login**
+- **Dev servers** — every listening port with its framework and project name, detected across
+  Next.js, Vite, Nuxt, Remix, Astro, Django, Flask, Rails and more. Stop and relaunch in one
+  click; when a restart doesn't come back, the row says why instead of going quiet.
+- **Background agents and cron** — every LaunchAgent in `~/Library/LaunchAgents` with its
+  schedule and whether it is running, idle, or failed, plus active crontab lines. Read-only on
+  purpose (see below).
+- **Simulators** — booted simulators with device, runtime, and the app running inside. Click one
+  to focus its window.
+
+Sections collapse, empty ones hide themselves, and it can start at login.
+
+## The owl
+
+The menu bar glyph is not an image asset. A status item is a 22pt monochrome template, which
+rules out Lottie, GIF and SVG alike, so the owl is a hand-drawn vector recomputed and
+re-rasterised frame by frame. It blinks on its own timer, half-closes its eyes when nothing is
+running, and turns red when something needs you — the app's entire alert surface is one bird
+changing its face.
+
+The head is a wide squircle rather than a drawn silhouette. Every attempt at ear tufts, a brow
+line or a tapered chin read as a cat at menu bar size. The owl comes from the features: sliced
+glaring eyes and a beak inside a squat frame, which is also all that survives being flattened to
+one colour.
 
 ## Install
 
@@ -72,7 +88,7 @@ way to bring it back. Reveal the plist and use `launchctl` if you mean it.
 
 Claude sessions and dev servers *are* killable — those are cheap to restart.
 
-## How It Works
+## How it works
 
 Perch polls every few seconds using standard macOS tools:
 
@@ -82,6 +98,11 @@ Perch polls every few seconds using standard macOS tools:
 - **Project names** — reads `package.json`, `Cargo.toml`, or falls back to the directory name
 - **Agents and cron** — `launchctl list` cross-referenced against the plists on disk, and `crontab -l`
 - **Simulators** — `xcrun simctl` for booted simulator data
+
+That second bullet is load-bearing. `ps aux | grep claude` reports about 341 processes on a
+machine running roughly 25, because it also matches the `.claude/shell-snapshots/` path inside
+every unrelated shell. Matching the resolved executable instead of a substring of the argument
+string is the difference between a useful list and noise.
 
 Restarting is less obvious than it sounds. The process holding a port often can't be relaunched
 from its own arguments — Next.js and npm both overwrite their `argv` with a display title, and
@@ -103,13 +124,7 @@ rendering every UI state side by side. See `Perch/Design/PreviewHarness.swift`.
 
 ## Contributing
 
-PRs welcome. Keep it clean.
-
-1. Fork it
-2. Create your branch (`git checkout -b feature/thing`)
-3. Commit (`git commit -m 'Add thing'`)
-4. Push (`git push origin feature/thing`)
-5. Open a PR
+Issues and PRs welcome. Branch off `main`, keep the diff small, and say what it does.
 
 ## Credits
 

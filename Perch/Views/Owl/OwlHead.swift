@@ -3,7 +3,6 @@ import SwiftUI
 struct OwlHead: View {
     var size: CGFloat = 18
     var eyeState: EyeState = .open
-    var pupilOffset: CGPoint = .zero
 
     enum EyeState {
         case open, halfClosed, closed, wide
@@ -16,7 +15,6 @@ struct OwlHead: View {
     /// on. The stroke is what gives it a silhouette at 20pt.
     private let faceColor = Color.white.opacity(0.13)
     private let faceEdgeColor = Color.white.opacity(0.34)
-    private let discColor = Color.white.opacity(0.17)
     private let eyeColor = Color.white.opacity(0.92)
 
     var body: some View {
@@ -29,25 +27,15 @@ struct OwlHead: View {
             context.fill(head, with: .color(faceColor))
             context.stroke(head, with: .color(faceEdgeColor), lineWidth: lineWidth)
 
-            // The facial disc. Too fine a line to survive 22pt, so the menu bar
-            // glyph does without it and only the panel head gets the dish.
-            let inset = OwlGeometry.faceDiscInsetRatio * scale
-            context.stroke(
-                OwlGeometry.headPath(in: faceRect.insetBy(dx: inset, dy: inset)),
-                with: .color(discColor),
-                lineWidth: max(0.5, lineWidth * 0.7)
-            )
-
-            let eyeCenterY = faceRect.midY - OwlGeometry.eyeCenterOffsetRatio * scale + pupilOffset.y * scale
+            let eyeCenterY = faceRect.midY - OwlGeometry.eyeCenterOffsetRatio * scale
             let eyeSpacing = OwlGeometry.eyeSpacingRatio * scale
             let eyeWidth = OwlGeometry.eyeWidthRatio * scale
             let fullEyeHeight = OwlGeometry.eyeHeightRatio * scale
             let eyeHeight = max(fullEyeHeight * eyeOpenness, OwlGeometry.minEyeHeightRatio * scale)
 
             for xOffset in [-eyeSpacing, eyeSpacing] {
-                let eyeX = mid.x + xOffset + pupilOffset.x * 0.5 * scale
                 let eyeRect = CGRect(
-                    x: eyeX - eyeWidth / 2,
+                    x: mid.x + xOffset - eyeWidth / 2,
                     y: eyeCenterY - eyeHeight / 2,
                     width: eyeWidth,
                     height: eyeHeight
@@ -65,5 +53,20 @@ struct OwlHead: View {
             )
         }
         .frame(width: size, height: size)
+    }
+}
+
+extension View {
+    /// The lit disc the 58pt owl sits on, on About and on Welcome. The head's
+    /// fill is tuned for 20pt in a menu bar; over a dark panel at 3x that it
+    /// needs something lit underneath it.
+    func owlPlinth() -> some View {
+        frame(width: 86, height: 86)
+            .background {
+                Circle()
+                    .fill(Color.white.opacity(0.07))
+                    .overlay(Circle().strokeBorder(Color.accent.opacity(0.35), lineWidth: 1))
+                    .shadow(color: Color.accent.opacity(0.30), radius: 18)
+            }
     }
 }

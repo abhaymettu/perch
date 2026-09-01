@@ -4,7 +4,7 @@ import SwiftUI
 /// watch is still on rather than just showing a blank panel.
 struct EmptyStateView: View {
     @State private var floatOffset: CGFloat = 0
-    @State private var isSnoozing = false
+    @State private var drifting = false
 
     var body: some View {
         VStack(spacing: 3) {
@@ -13,7 +13,7 @@ struct EmptyStateView: View {
                 floatingZ(x: 26, y: -20, size: 11, delay: 0.7)
                 floatingZ(x: 34, y: -28, size: 13, delay: 1.4)
 
-                OwlHead(size: 46, eyeState: .closed, pupilOffset: .zero)
+                OwlHead(size: 46, eyeState: .closed)
                     .offset(y: floatOffset)
             }
             .frame(height: 58)
@@ -29,25 +29,34 @@ struct EmptyStateView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 34)
-        .onAppear {
-            withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
-                floatOffset = -4
-            }
-            isSnoozing = true
+        .onAppear { startDrifting() }
+        // The panel view is built once and reused, so `onAppear` fires while the
+        // window is still ordered out and the loop can come up already stopped.
+        // Every open restarts it.
+        .onReceive(NotificationCenter.default.publisher(for: .perchPanelWillOpen)) { _ in
+            drifting = false
+            DispatchQueue.main.async { startDrifting() }
         }
     }
 
-    /// One repeating animation per z, offset by a delay. The previous version
-    /// cancelled its own loop with a timed reset and played exactly once.
+    private func startDrifting() {
+        withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
+            floatOffset = -4
+        }
+        drifting = true
+    }
+
+    /// Each z rises and fades on its own loop, staggered by a delay. It used to
+    /// fade in place, which at one frame is indistinguishable from a static z.
     private func floatingZ(x: CGFloat, y: CGFloat, size: CGFloat, delay: Double) -> some View {
         Text("z")
             .font(.system(size: size, weight: .medium))
             .foregroundStyle(Color.inkFaint)
-            .offset(x: x, y: y)
-            .opacity(isSnoozing ? 0 : 0.75)
+            .offset(x: x, y: y + (drifting ? -11 : 0))
+            .opacity(drifting ? 0 : 0.75)
             .animation(
                 .easeOut(duration: 2.1).repeatForever(autoreverses: false).delay(delay),
-                value: isSnoozing
+                value: drifting
             )
     }
 }

@@ -8,18 +8,10 @@ struct AboutPage: View {
             PanelPageHeader(title: "About", back: back)
             PanelDivider()
 
-            // The mascot is the whole personality of this app and it was living
-            // at 22pt in a header corner. This is the one page with room for it.
-            AnimatedOwlHead(size: 58, event: .idle)
-                .frame(width: 86, height: 86)
-                // The head's fill is tuned for 20pt in a menu bar; over a dark
-                // panel at 3x that it needs something lit to sit on.
-                .background {
-                    Circle()
-                        .fill(Color.white.opacity(0.07))
-                        .overlay(Circle().strokeBorder(Color.accent.opacity(0.35), lineWidth: 1))
-                        .shadow(color: Color.accent.opacity(0.30), radius: 18)
-                }
+            // Still, not animated: the owl moves in the menu bar, which is where
+            // you actually look at it. Here it is a portrait.
+            OwlHead(size: 58)
+                .owlPlinth()
                 .padding(.top, 24)
 
             Text("Perch")
