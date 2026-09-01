@@ -16,7 +16,7 @@ final class AppState {
 
     private var isScanning = false
     var isInitialLoad = true
-    var lastEvent: BlinkEvent = .idle
+    var lastEvent: PerchEvent = .idle
 
     var restartStates: [Int: RestartState] = [:]
 
@@ -38,7 +38,7 @@ final class AppState {
     private(set) var isActive: Bool = false
     var totalCount: Int { servers.count + simulators.count + sessions.count }
 
-    /// Turns the menubar robot red: a session running well past its kind's
+    /// Turns the menubar owl red: a session running well past its kind's
     /// threshold, or a daemon that exited nonzero.
     var hasProblem: Bool {
         sessions.contains(where: \.isStale) || agents.contains(where: \.hasFailed)
@@ -49,9 +49,9 @@ final class AppState {
             || !agents.isEmpty || !cronJobs.isEmpty
     }
 
-    // MARK: - Blink Events
+    // MARK: - Perch Events
 
-    enum BlinkEvent: Equatable {
+    enum PerchEvent: Equatable {
         case idle
         case active
         case scanning
@@ -165,7 +165,7 @@ final class AppState {
 
         guard !hasRestartInFlight else { return }
 
-        let newEvent: BlinkEvent = totalCount > 0 ? .active : .idle
+        let newEvent: PerchEvent = totalCount > 0 ? .active : .idle
         if lastEvent != newEvent {
             lastEvent = newEvent
         }

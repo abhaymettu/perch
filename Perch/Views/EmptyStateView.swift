@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Nothing running. Blink's whole job is watching, so the empty state says the
+/// Nothing running. Perch's whole job is watching, so the empty state says the
 /// watch is still on rather than just showing a blank panel.
 struct EmptyStateView: View {
     @State private var floatOffset: CGFloat = 0
@@ -13,7 +13,7 @@ struct EmptyStateView: View {
                 floatingZ(x: 26, y: -20, size: 11, delay: 0.7)
                 floatingZ(x: 34, y: -28, size: 13, delay: 1.4)
 
-                RobotHead(size: 46, eyeState: .closed, pupilOffset: .zero)
+                OwlHead(size: 46, eyeState: .closed, pupilOffset: .zero)
                     .offset(y: floatOffset)
             }
             .frame(height: 58)

@@ -143,7 +143,7 @@ final class LimitsMonitor {
     }
 
     /// Shells out to `security` rather than calling `SecItemCopyMatching`: the
-    /// Keychain ACL on this item is granted to that binary already, and Blink's
+    /// Keychain ACL on this item is granted to that binary already, and Perch's
     /// own signature changes on every rebuild.
     private func token() async throws -> String {
         guard let output = await Shell.run(

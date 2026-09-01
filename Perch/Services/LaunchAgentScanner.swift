@@ -13,7 +13,7 @@ struct LaunchAgent: Identifiable, Hashable {
     var isRunning: Bool { pid != nil }
     /// Negative statuses are signal deaths. SIGTERM and SIGKILL mean something
     /// stopped the agent on purpose — a logout, a `launchctl kickstart -k` —
-    /// not that it broke, and counting those pins the robot red forever.
+    /// not that it broke, and counting those pins the owl red forever.
     var hasFailed: Bool { lastExitStatus != 0 && lastExitStatus != -15 && lastExitStatus != -9 }
 
     var color: Color {

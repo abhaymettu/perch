@@ -15,7 +15,7 @@ final class MenuBarIconAnimator {
         setAwake(false)
     }
 
-    /// The red robot. Redrawn immediately so a stale session shows up
+    /// The red owl. Redrawn immediately so a stale session shows up
     /// without waiting for the next blink.
     func setAlert(_ alert: Bool) {
         guard alert != isAlert else { return }
@@ -41,7 +41,7 @@ final class MenuBarIconAnimator {
 
     private func runBlinkLoop() async {
         while !Task.isCancelled {
-            try? await Task.sleep(for: .seconds(.random(in: RobotBlink.interval)))
+            try? await Task.sleep(for: .seconds(.random(in: OwlBlink.interval)))
             guard !Task.isCancelled else { return }
             await blinkOnce()
         }
@@ -50,10 +50,10 @@ final class MenuBarIconAnimator {
     private func blinkOnce() async {
         var elapsed: TimeInterval = 0
 
-        while elapsed < RobotBlink.duration {
+        while elapsed < OwlBlink.duration {
             guard !Task.isCancelled else { return }
 
-            draw(RobotBlink.openness(at: elapsed))
+            draw(OwlBlink.openness(at: elapsed))
             try? await Task.sleep(for: .seconds(Self.frameInterval))
             elapsed += Self.frameInterval
         }

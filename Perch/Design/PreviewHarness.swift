@@ -1,7 +1,7 @@
 #if DEBUG
 import SwiftUI
 
-/// A frozen panel-full of state. `BLINK_UI_PREVIEW=1` renders one window with
+/// A frozen panel-full of state. `PERCH_UI_PREVIEW=1` renders one window with
 /// every scenario side by side, so a design round is one screenshot and two
 /// rounds are diffable. The live panel is a poor design surface: it needs Ice
 /// quit, it is invisible to Accessibility, and its contents change under you.
@@ -61,7 +61,7 @@ extension PreviewScenario {
             ClaudeSession(id: "lane:infra", pid: 4118, kind: .remoteControl, name: "infra",
                           workingDirectory: "/Users/dev/infra", startedAt: ago(38),
                           childCount: 1, activeSince: ago(2.4)),
-            ClaudeSession(id: "interactive:9821", pid: 9821, kind: .interactive, name: "Blink",
+            ClaudeSession(id: "interactive:9821", pid: 9821, kind: .interactive, name: "Perch",
                           workingDirectory: "/Users/dev/code/blink",
                           startedAt: ago(1.3), childCount: 3, activeSince: nil),
             ClaudeSession(id: "headless:7734", pid: 7734, kind: .headless, name: "Nightly Digest",
@@ -162,7 +162,7 @@ extension PreviewScenario {
     static let settings = PreviewScenario(name: "settings", page: .settings, set: "pages")
     static let about = PreviewScenario(name: "about", page: .about, set: "pages")
 
-    /// The first-launch window. Nobody who has already run Blink will see it
+    /// The first-launch window. Nobody who has already run Perch will see it
     /// again — `hasLaunchedBefore` is set — but it is a fresh install's entire
     /// first impression, and it stayed on the stock system look for a long time.
     static let welcome = PreviewScenario(name: "welcome", set: "welcome")
@@ -173,10 +173,10 @@ extension PreviewScenario {
 
 enum PreviewHarness {
 
-    /// `BLINK_UI_PREVIEW=1` renders the four state scenarios; `=pages` renders
+    /// `PERCH_UI_PREVIEW=1` renders the four state scenarios; `=pages` renders
     /// settings and about.
     private static var set: String {
-        let value = ProcessInfo.processInfo.environment["BLINK_UI_PREVIEW"] ?? ""
+        let value = ProcessInfo.processInfo.environment["PERCH_UI_PREVIEW"] ?? ""
         return value == "1" ? "main" : value
     }
 
@@ -241,7 +241,7 @@ enum PreviewHarness {
             backing: .buffered,
             defer: false
         )
-        window.title = "Blink — UI preview"
+        window.title = "Perch — UI preview"
         window.contentView = NSHostingView(rootView: content)
         window.center()
         window.makeKeyAndOrderFront(nil)

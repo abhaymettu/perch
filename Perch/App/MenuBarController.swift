@@ -31,7 +31,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         }
         #endif
 
-        // Variable length: the quota time sits beside the robot as the
+        // Variable length: the quota time sits beside the owl as the
         // button's title, which a square item would clip.
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
@@ -44,15 +44,15 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
 
         iconAnimator = MenuBarIconAnimator(button: statusItem.button)
 
-        // `.preferredContentSize` is what makes the panel as tall as its
-        // content: AppKit resizes the window whenever SwiftUI's ideal size
-        // changes. Without it the empty state gets the same 640pt as a full one.
+        // No `sizingOptions`: `.preferredContentSize` stack-overflows on launch
+        // (AppKit's resize re-enters the layout that asked for it) and
+        // `.intrinsicContentSize` leaves the window stale. `syncPanelHeight`
+        // pulls the size instead.
         let hostingController = NSHostingController(rootView:
             MenuBarView()
                 .environment(appState)
                 .environment(scrollActivity)
         )
-        hostingController.sizingOptions = [.preferredContentSize]
 
         panel = NSPanel(
             contentRect: NSRect(origin: .zero, size: MenuBarView.panelSize),
@@ -71,17 +71,6 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         panel.isMovable = false
         panel.hasShadow = true
         panel.isReleasedWhenClosed = false
-
-        // AppKit resizes a window about its bottom-left corner; the panel hangs
-        // from the menu bar, so every content-driven resize has to re-pin the top.
-        NotificationCenter.default.addObserver(
-            forName: NSWindow.didResizeNotification,
-            object: panel,
-            queue: .main
-        ) { [weak self] _ in
-            guard let self, self.panel.isVisible, self.panelTopLeft != .zero else { return }
-            self.panel.setFrameTopLeftPoint(self.panelTopLeft)
-        }
 
         startIconUpdates()
 
@@ -109,6 +98,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         }
         panelTopLeft = NSPoint(x: x, y: buttonFrame.minY - 4)
 
+        syncPanelHeight()
         panel.setFrameTopLeftPoint(panelTopLeft)
         panel.alphaValue = 0
         panel.makeKeyAndOrderFront(nil)
@@ -168,6 +158,23 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// The panel is as tall as what is running. AppKit resizes a window about
+    /// its bottom-left corner and the panel hangs from the menu bar, so the top
+    /// is re-pinned after every resize. The `!=` guard makes this idempotent —
+    /// that is what stops it becoming the feedback loop `.preferredContentSize`
+    /// was.
+    private func syncPanelHeight() {
+        guard let content = panelContentView else { return }
+
+        let height = max(content.fittingSize.height, MenuBarView.minHeight)
+        guard abs(panel.frame.height - height) > 0.5 else { return }
+
+        panel.setContentSize(NSSize(width: MenuBarView.panelWidth, height: height))
+        if panelTopLeft != .zero {
+            panel.setFrameTopLeftPoint(panelTopLeft)
+        }
+    }
+
     @MainActor
     private func updateQuotaTitle() {
         // Empty string, not nil: AppKit keeps the old title otherwise.
@@ -184,6 +191,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
                 self.iconAnimator.setAwake(self.appState.isActive)
                 self.iconAnimator.setAlert(self.appState.hasProblem)
                 self.updateQuotaTitle()
+                self.syncPanelHeight()
             }
         }
     }

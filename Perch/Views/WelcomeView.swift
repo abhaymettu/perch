@@ -65,13 +65,13 @@ struct WelcomeView: View {
 
     private var welcomeStep: some View {
         StepLayout(
-            title: "Blink",
+            title: "Perch",
             titleSize: 28,
             caption: "Claude sessions, dev servers, daemons\nand simulators, in one menu bar panel.",
             primary: "Get Started",
             action: { withAnimation(.easeInOut(duration: 0.35)) { step = 1 } }
         ) {
-            AnimatedRobotHead(size: 58, event: .active)
+            AnimatedOwlHead(size: 58, event: .active)
         }
     }
 

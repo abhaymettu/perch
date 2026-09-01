@@ -82,12 +82,12 @@ private extension MenuBarView {
     /// colour.
     var header: some View {
         HStack(spacing: 9) {
-            AnimatedRobotHead(size: 22, event: appState.lastEvent)
+            AnimatedOwlHead(size: 22, event: appState.lastEvent)
                 .frame(width: 28, height: 28)
                 .background(Color.white.opacity(0.06), in: Circle())
                 .overlay(Circle().strokeBorder(Color.white.opacity(0.07)))
 
-            Text("Blink")
+            Text("Perch")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Color.inkMuted)
 
@@ -120,14 +120,14 @@ private extension MenuBarView {
         .padding(.horizontal, 7)
         .padding(.vertical, 3)
         .background(tint.opacity(0.13), in: Capsule())
-        .help(problem ? "Something is stale or has failed" : "Everything Blink watches is healthy")
+        .help(problem ? "Something is stale or has failed" : "Everything Perch watches is healthy")
     }
 
     @ViewBuilder
     var content: some View {
         if appState.isInitialLoad {
             VStack(spacing: 12) {
-                AnimatedRobotHead(size: 48, event: .scanning)
+                AnimatedOwlHead(size: 48, event: .scanning)
                 Text("Scanning...")
                     .font(.body)
                     .foregroundStyle(.secondary)
@@ -319,7 +319,7 @@ private extension MenuBarView {
 
             Spacer()
 
-            FooterAction(symbol: "power", help: "Quit Blink", hoverTint: .alert) {
+            FooterAction(symbol: "power", help: "Quit Perch", hoverTint: .alert) {
                 NSApplication.shared.terminate(nil)
             }
         }

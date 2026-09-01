@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct BlinkApp: App {
+struct PerchApp: App {
     @NSApplicationDelegateAdaptor(MenuBarController.self) private var menuBar
 
     var body: some Scene {
