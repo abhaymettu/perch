@@ -188,10 +188,6 @@ enum PreviewHarness {
     /// screencapture's coordinates (top-left origin), so a shell loop can
     /// `screencapture -R` it without hunting for a window id.
     static func present() {
-        // Otherwise the harness inherits whatever sections were collapsed the
-        // last time the real app ran, and half the rows never render.
-        UserDefaults.standard.removeObject(forKey: "collapsedSections")
-
         let gap: CGFloat = 26
         let scenarios = PreviewScenario.all.filter { $0.set == set }
         let width = (MenuBarView.panelSize.width + gap) * CGFloat(scenarios.count) + gap
@@ -207,7 +203,10 @@ enum PreviewHarness {
                         if scenario.set == "welcome" {
                             WelcomeView(step: scenario.step)
                         } else {
-                            MenuBarView(page: scenario.page)
+                            // Sections open shut in the real panel. Opening two
+                            // here is what makes a round about the rows rather
+                            // than about five section headers.
+                            MenuBarView(page: scenario.page, expanded: ["CLAUDE", "DEV SERVERS"])
                                 .environment(AppState(frozen: scenario))
                                 .environment(ScrollActivity())
                                 // The real panel asks SwiftUI for its *ideal*
