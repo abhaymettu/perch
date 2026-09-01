@@ -33,7 +33,6 @@ struct OwlHead: View {
             let eyeWidth = OwlGeometry.eyeWidthRatio * scale
             let fullEyeHeight = OwlGeometry.eyeHeightRatio * scale
             let eyeHeight = max(fullEyeHeight * eyeOpenness, OwlGeometry.minEyeHeightRatio * scale)
-            let eyeCornerRadius = eyeWidth / 2
 
             for xOffset in [-eyeSpacing, eyeSpacing] {
                 let eyeX = mid.x + xOffset + pupilOffset.x * 0.5 * scale
@@ -45,7 +44,7 @@ struct OwlHead: View {
                 )
 
                 context.fill(
-                    Path(roundedRect: eyeRect, cornerRadius: eyeCornerRadius),
+                    OwlGeometry.eyePath(in: eyeRect, innerIsRight: xOffset < 0),
                     with: .color(eyeColor)
                 )
             }

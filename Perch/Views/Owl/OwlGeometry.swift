@@ -4,27 +4,22 @@ import SwiftUI
 /// `size / baseSize`, so the whole face scales from one number.
 enum OwlGeometry {
     static let baseSize: CGFloat = 24
-    static let faceWidthRatio: CGFloat = 21
-    static let faceHeightRatio: CGFloat = 20
+    static let faceWidthRatio: CGFloat = 23
+    static let faceHeightRatio: CGFloat = 19
 
-    /// No ear tufts. Horns on a round head read as a cat, which is exactly what
-    /// the first pass looked like. What says owl without them is the facial
-    /// disc: a heart, broad and notched across the brow, tapering to a rounded
-    /// chin. No other animal has that silhouette.
-    ///
     /// Circles, not the robot's 3.4x4.4 bars — nearly double the area, which is
     /// the reason to be an owl at all: eye state stays readable at menu bar size.
-    static let eyeSpacingRatio: CGFloat = 4.0
-    static let eyeWidthRatio: CGFloat = 7.0
-    static let eyeHeightRatio: CGFloat = 7.0
+    static let eyeSpacingRatio: CGFloat = 4.2
+    static let eyeWidthRatio: CGFloat = 7.2
+    static let eyeHeightRatio: CGFloat = 7.2
     static let minEyeHeightRatio: CGFloat = 0.7
     /// The eyes ride high in the disc — an owl's sit up under the brow, and a
     /// low-set eye is part of what made the first pass read as a cat.
-    static let eyeCenterOffsetRatio: CGFloat = 1.6
+    static let eyeCenterOffsetRatio: CGFloat = 0.9
 
-    static let beakWidthRatio: CGFloat = 2.4
-    static let beakTopRatio: CGFloat = 2.1
-    static let beakDepthRatio: CGFloat = 3.6
+    static let beakWidthRatio: CGFloat = 2.8
+    static let beakTopRatio: CGFloat = 0.4
+    static let beakDepthRatio: CGFloat = 4.2
 
     static func eyeOpenness(for state: OwlHead.EyeState) -> CGFloat {
         switch state {
@@ -35,53 +30,72 @@ enum OwlGeometry {
         }
     }
 
-    /// The facial disc. Four curves: out over each brow dome from the notch,
-    /// then both cheeks down into a single rounded chin. Every control point is a
-    /// fraction of `rect`, so the disc scales with no scale argument.
+    /// The head. Not a disc — a brow that dips to a V at the centre and sweeps
+    /// up and out to a point above each eye, over a face that tapers to a
+    /// rounded chin. Ear tufts on a round head read as a cat; this reads as a
+    /// bird of prey, which is the whole difference.
+    ///
+    /// Every control point is a fraction of `rect`, so it needs no scale.
     static func headPath(in rect: CGRect) -> Path {
-        let w = rect.width, h = rect.height
-        let notch = CGPoint(x: rect.midX, y: rect.minY + 0.13 * h)   // brow dip
-        let widestY = rect.minY + 0.40 * h                           // cheeks at full width
-        let overshoot = rect.minY - 0.05 * h                         // brow domes clear the box
-        let chin = CGPoint(x: rect.midX, y: rect.maxY)
+        func p(_ fx: CGFloat, _ fy: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + fx * rect.width, y: rect.minY + fy * rect.height)
+        }
 
         var path = Path()
-        path.move(to: notch)
-        path.addCurve(                                       // left brow dome
-            to: CGPoint(x: rect.minX, y: widestY),
-            control1: CGPoint(x: rect.midX - 0.22 * w, y: overshoot),
-            control2: CGPoint(x: rect.minX, y: rect.minY + 0.04 * h)
-        )
-        path.addCurve(                                       // left cheek into the chin
-            to: chin,
-            control1: CGPoint(x: rect.minX, y: rect.minY + 0.76 * h),
-            control2: CGPoint(x: rect.midX - 0.30 * w, y: rect.maxY)
-        )
-        path.addCurve(                                       // right cheek back up
-            to: CGPoint(x: rect.maxX, y: widestY),
-            control1: CGPoint(x: rect.midX + 0.30 * w, y: rect.maxY),
-            control2: CGPoint(x: rect.maxX, y: rect.minY + 0.76 * h)
-        )
-        path.addCurve(                                       // right brow dome
-            to: notch,
-            control1: CGPoint(x: rect.maxX, y: rect.minY + 0.04 * h),
-            control2: CGPoint(x: rect.midX + 0.22 * w, y: overshoot)
-        )
+        // The tip is sharp because the two curves meeting there leave almost
+        // antiparallel: control2 of the brow and control1 of the outer edge sit
+        // on nearly the same line through it. Splay them and it goes blunt.
+        path.move(to: p(0.50, 0.34))                                   // brow notch
+        path.addCurve(to: p(0.00, 0.02),                               // up to the left tip
+                      control1: p(0.33, 0.15), control2: p(0.13, 0.01))
+        path.addCurve(to: p(0.16, 0.56),                               // down the outer edge
+                      control1: p(0.09, 0.14), control2: p(0.13, 0.35))
+        path.addCurve(to: p(0.50, 1.00),                               // left cheek into the chin
+                      control1: p(0.17, 0.85), control2: p(0.31, 1.00))
+        path.addCurve(to: p(0.84, 0.56),                               // right cheek back up
+                      control1: p(0.69, 1.00), control2: p(0.83, 0.85))
+        path.addCurve(to: p(1.00, 0.02),                               // up the outer edge
+                      control1: p(0.87, 0.35), control2: p(0.91, 0.14))
+        path.addCurve(to: p(0.50, 0.34),                               // back down to the notch
+                      control1: p(0.87, 0.01), control2: p(0.67, 0.15))
         path.closeSubpath()
         return path
     }
 
-    /// A narrow downward wedge between the eyes. `eyeCenterY` is the eyes' shared
-    /// centre line — the beak hangs off that rather than off the head, so it stays
-    /// under the eyes as they glance around.
+    /// A circle with the top-inner corner sliced off by the brow. Plain circles
+    /// read owlish but placid; the cut is what makes it glare. The slice is
+    /// subtracted from the eye rather than drawn over it so that all three
+    /// renderers — panel, menu bar, app icon — get the same shape from one path.
+    static func eyePath(in rect: CGRect, innerIsRight: Bool) -> Path {
+        let outerY = rect.minY + 0.02 * rect.height   // barely clipped at the temple
+        let innerY = rect.minY + 0.52 * rect.height   // deep cut beside the beak
+        let (leftY, rightY) = innerIsRight ? (outerY, innerY) : (innerY, outerY)
+
+        let top = rect.minY - rect.height
+
+        var cut = Path()
+        cut.move(to: CGPoint(x: rect.minX, y: leftY))
+        cut.addLine(to: CGPoint(x: rect.maxX, y: rightY))
+        cut.addLine(to: CGPoint(x: rect.maxX, y: top))
+        cut.addLine(to: CGPoint(x: rect.minX, y: top))
+        cut.closeSubpath()
+
+        return Path(roundedRect: rect, cornerRadius: rect.width / 2).subtracting(cut)
+    }
+
+    /// A small diamond between the eyes. `eyeCenterY` is the eyes' shared centre
+    /// line — the beak hangs off that rather than off the head, so it stays under
+    /// the eyes as they glance around.
     static func beakPath(midX: CGFloat, eyeCenterY: CGFloat, scale: CGFloat) -> Path {
         let halfWidth = beakWidthRatio * scale / 2
         let top = eyeCenterY + beakTopRatio * scale
+        let depth = beakDepthRatio * scale
 
         var path = Path()
-        path.move(to: CGPoint(x: midX - halfWidth, y: top))
-        path.addLine(to: CGPoint(x: midX + halfWidth, y: top))
-        path.addLine(to: CGPoint(x: midX, y: top + beakDepthRatio * scale))
+        path.move(to: CGPoint(x: midX, y: top))
+        path.addLine(to: CGPoint(x: midX + halfWidth, y: top + depth / 2))
+        path.addLine(to: CGPoint(x: midX, y: top + depth))
+        path.addLine(to: CGPoint(x: midX - halfWidth, y: top + depth / 2))
         path.closeSubpath()
         return path
     }
