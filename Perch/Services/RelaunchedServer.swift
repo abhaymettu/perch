@@ -51,10 +51,6 @@ final class RelaunchedServer {
         }
         return "Exited with code \(process.terminationStatus) \(lasted)."
     }
-
-    func stopDraining() {
-        pipe.fileHandleForReading.readabilityHandler = nil
-    }
 }
 
 private final class OutputTail {

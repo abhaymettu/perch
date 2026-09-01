@@ -372,7 +372,7 @@ final class AppState {
         killedPIDs.insert(server.pid)
         killedPIDs.insert(target.pid)
 
-        guard await waitForPort(server.port, listening: false, timeout: Self.portFreeTimeout) else {
+        guard await waitForPortFree(server.port, timeout: Self.portFreeTimeout) else {
             finishRestart(port: server.port, failure: "Port \(server.port) never freed up.")
             return
         }
@@ -448,15 +448,14 @@ final class AppState {
         return await isPortListening(port) ? .listening : .timedOut
     }
 
-    private func waitForPort(_ port: Int, listening: Bool, timeout: TimeInterval) async -> Bool {
+    private func waitForPortFree(_ port: Int, timeout: TimeInterval) async -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
-        let interval: TimeInterval = 0.4
 
         while Date() < deadline {
-            if await isPortListening(port) == listening { return true }
-            try? await Task.sleep(for: .seconds(interval))
+            if !(await isPortListening(port)) { return true }
+            try? await Task.sleep(for: .seconds(0.4))
         }
-        return await isPortListening(port) == listening
+        return !(await isPortListening(port))
     }
 
     private func isPortListening(_ port: Int) async -> Bool {

@@ -6,7 +6,6 @@ enum Perch {
         return "v\(short)"
     }
 
-    static let repositoryURL = URL(string: "https://github.com/abhaymettu/perch")!
     static let issuesURL = URL(string: "https://github.com/abhaymettu/perch/issues/new")!
     static let authorURL = URL(string: "https://github.com/abhaymettu")!
 }
