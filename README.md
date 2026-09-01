@@ -16,7 +16,7 @@ Claude usage limit is left.
 </p>
 
 <p align="center">
-  <img src=".github/screenshot.png" width="360" alt="The Perch panel: usage strip, Claude sessions, dev servers, daemons and simulators" />
+  <img src=".github/screenshot.png" width="340" alt="The Perch panel: usage strip, the roost of section chips, and Claude session rows" />
 </p>
 
 Everything above was four things before: a usage-ring app, a SwiftBar plugin, `ps | grep claude`,
