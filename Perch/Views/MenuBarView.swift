@@ -16,15 +16,16 @@ struct MenuBarView: View {
 
     @State private var page: Page
 
-    init(page: Page = .main, expanded: Set<String> = []) {
+    init(page: Page = .main, open: String? = nil) {
         _page = State(initialValue: page)
-        _expanded = State(initialValue: expanded)
+        _open = State(initialValue: open)
     }
 
-    /// Which sections are open, not which are closed — everything starts shut
-    /// on each open and you expand what you want. Deliberately not persisted:
-    /// the panel is a glance, and a glance is the five section counts.
-    @State private var expanded: Set<String> = []
+    /// The one section showing its rows, by title, or nil for the bare glance.
+    /// One at a time on purpose: five sections that can all be open is how the
+    /// panel became five stacked lists. Not persisted — the panel opens as a
+    /// glance every time, and the glance is the roost.
+    @State private var open: String?
 
     enum Page {
         case main, settings, about
@@ -56,7 +57,7 @@ struct MenuBarView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .onReceive(NotificationCenter.default.publisher(for: .perchPanelWillOpen)) { _ in
-            expanded.removeAll()
+            open = nil
             page = .main
         }
     }
@@ -141,15 +142,81 @@ private extension MenuBarView {
             EmptyStateView()
                 .transition(.opacity.combined(with: .scale(scale: 0.97)))
         } else {
+            VStack(spacing: 0) {
+                roost
+                openSection
+            }
+            .transition(.opacity.combined(with: .scale(scale: 0.97)))
+        }
+    }
+
+    // MARK: - The roost
+
+    /// Five perches in one strip: a glyph, a count, and a health tint each.
+    /// Stacked closed section headers read as five lists you have not opened;
+    /// one strip of five reads as the instrument the panel actually is. The
+    /// touched perch widens to carry its own name, so the open section is
+    /// labelled without spending a second row on a header.
+    var roost: some View {
+        HStack(spacing: 5) {
+            ForEach(sections, id: \.title) { perch($0) }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+    }
+
+    func perch(_ section: RoostSection) -> some View {
+        let isOpen = open == section.title
+        let tint: Color = section.isAlert ? .alert
+            : (section.count == 0 ? .inkFaint : (isOpen ? .ink : .inkMuted))
+
+        return HStack(spacing: 5) {
+            Image(systemName: section.icon)
+                .font(.system(size: 9.5, weight: .medium))
+                .frame(width: 12)
+
+            if isOpen {
+                Text(section.title)
+                    .font(.sectionLabel)
+                    .tracking(1.1)
+                    .fixedSize()
+            }
+
+            Text(verbatim: "\(section.count)")
+                .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+                .monospacedDigit()
+                .contentTransition(.numericText())
+                .opacity(section.count == 0 ? 0.5 : 1)
+                // A count that truncates is worse than no count: the open
+                // chip carries a label too, and without this the digit is the
+                // flexible child the HStack squeezes to nothing.
+                .fixedSize()
+        }
+        .foregroundStyle(tint)
+        .padding(.horizontal, 7)
+        .frame(height: 22)
+        .background(
+            Capsule().fill(Color.white.opacity(isOpen ? 0.10 : 0.045))
+        )
+        .contentShape(Capsule())
+        // An empty perch is a readout, not a control: tapping it would morph
+        // the strip and open nothing.
+        .allowsHitTesting(section.count > 0)
+        .onTapGesture { toggle(section.title) }
+        .help(section.count == 0 ? "No \(section.title.lowercased())" : section.title.capitalized)
+    }
+
+    /// One section's rows, and its bulk action as the last row of the same card
+    /// — the strip has no width left for it, and a "stop all" belongs with the
+    /// things it stops rather than in the chrome above them.
+    @ViewBuilder
+    var openSection: some View {
+        if let section = sections.first(where: { $0.title == open }), section.count > 0 {
             ScrollView {
-                VStack(spacing: 10) {
-                    claudeSection
-                    serverSection
-                    daemonSection
-                    cronSection
-                    simulatorSection
-                }
-                .padding(12)
+                section.rows()
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 12)
             }
             .mask(
                 LinearGradient(
@@ -163,149 +230,91 @@ private extension MenuBarView {
                 )
             )
             .frame(maxHeight: Self.maxListHeight)
-            .transition(.opacity.combined(with: .scale(scale: 0.97)))
+            .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
         }
     }
 
-    var claudeSection: some View {
-        section("CLAUDE", icon: "brain", items: appState.sessions) { session in
-            ClaudeSessionRowView(session: session)
+    /// Tapping the open perch closes it; tapping another moves the expansion.
+    func toggle(_ title: String) {
+        // Critically damped: the strip morphs and the card arrives under it in
+        // one motion, and an impatient second tap redirects it mid-flight.
+        withAnimation(.spring(response: 0.32, dampingFraction: 1)) {
+            open = (open == title) ? nil : title
         }
+        // The window resize is AppKit's, not SwiftUI's, so it has to be told.
+        // Waiting for the 1s poll is what made it land as a jump.
+        NotificationCenter.default.post(name: .perchPanelLayoutChanged, object: nil)
     }
 
-    var serverSection: some View {
-        section(
-            "DEV SERVERS",
-            icon: "server.rack",
-            items: appState.servers,
-            action: appState.servers.count > 1 ? "Stop All" : nil,
-            perform: { appState.stopAllServers() }
-        ) { server in
-            ServerRowView(server: server)
-        }
+    // MARK: - Sections
+
+    var sections: [RoostSection] {
+        [
+            RoostSection(
+                title: "CLAUDE", icon: "bubble.left.and.bubble.right", count: appState.sessions.count,
+                isAlert: appState.sessions.contains(where: \.isStale),
+                rows: { card(appState.sessions) { ClaudeSessionRowView(session: $0) } }
+            ),
+            RoostSection(
+                title: "DEV SERVERS", icon: "server.rack", count: appState.servers.count,
+                isAlert: appState.restartStates.values.contains { if case .failed = $0 { true } else { false } },
+                rows: {
+                    card(appState.servers, action: appState.servers.count > 1 ? "Stop All" : nil,
+                         perform: { appState.stopAllServers() }) { ServerRowView(server: $0) }
+                }
+            ),
+            RoostSection(
+                title: "DAEMONS", icon: "gearshape.2", count: appState.agents.count,
+                isAlert: appState.agents.contains(where: \.hasFailed),
+                rows: { card(appState.agents) { LaunchAgentRowView(agent: $0) } }
+            ),
+            RoostSection(
+                title: "CRON", icon: "clock", count: appState.cronJobs.count,
+                isAlert: false,
+                rows: { card(appState.cronJobs) { CronJobRowView(job: $0) } }
+            ),
+            RoostSection(
+                title: "SIMULATORS", icon: "iphone", count: appState.simulators.count,
+                isAlert: appState.simulatorRestartStates.values.contains { if case .failed = $0 { true } else { false } },
+                rows: {
+                    card(appState.simulators, action: appState.simulators.count > 1 ? "Shut Down All" : nil,
+                         perform: { appState.shutDownAllSimulators() }) { SimulatorRowView(simulator: $0) }
+                }
+            )
+        ]
     }
 
-    var daemonSection: some View {
-        section("DAEMONS", icon: "gearshape.2", items: appState.agents) { agent in
-            LaunchAgentRowView(agent: agent)
-        }
-    }
-
-    var cronSection: some View {
-        section("CRON", icon: "clock", items: appState.cronJobs) { job in
-            CronJobRowView(job: job)
-        }
-    }
-
-    var simulatorSection: some View {
-        section(
-            "SIMULATORS",
-            icon: "iphone",
-            items: appState.simulators,
-            action: appState.simulators.count > 1 ? "Shut Down All" : nil,
-            perform: { appState.shutDownAllSimulators() }
-        ) { simulator in
-            SimulatorRowView(simulator: simulator)
-        }
-    }
-
-    @ViewBuilder
-    func section<Item: Identifiable, Row: View>(
-        _ title: String,
-        icon: String,
-        items: [Item],
+    func card<Item: Identifiable, Row: View>(
+        _ items: [Item],
         action: String? = nil,
         perform: @escaping () -> Void = {},
         @ViewBuilder row: @escaping (Item) -> Row
-    ) -> some View {
-        if !items.isEmpty {
-            VStack(alignment: .leading, spacing: 3) {
-                sectionHeader(title, icon: icon, count: items.count, action: action, perform: perform)
+    ) -> AnyView {
+        AnyView(
+            VStack(spacing: 1) {
+                ForEach(items) { item in
+                    row(item)
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .top).combined(with: .opacity),
+                            removal: .move(edge: .trailing).combined(with: .opacity)
+                        ))
+                }
 
-                if !isCollapsed(title) {
-                    VStack(spacing: 1) {
-                        ForEach(items) { item in
-                            row(item)
-                                .transition(.asymmetric(
-                                    insertion: .move(edge: .top).combined(with: .opacity),
-                                    removal: .move(edge: .trailing).combined(with: .opacity)
-                                ))
-                        }
+                if let action {
+                    Button(action: perform) {
+                        Text(action)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(Color.alert)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, HoverRowStyle.horizontalPadding)
+                            .frame(height: 22)
+                            .contentShape(Rectangle())
                     }
-                    .panelCard()
+                    .buttonStyle(.plain)
                 }
             }
-        }
-    }
-
-    func sectionHeader(
-        _ title: String,
-        icon: String,
-        count: Int,
-        action: String?,
-        perform: @escaping () -> Void
-    ) -> some View {
-        let collapsed = isCollapsed(title)
-
-        return HStack(spacing: 5) {
-            Image(systemName: icon)
-                .font(.system(size: 8.5, weight: .medium))
-                .frame(width: 11)
-                .foregroundStyle(Color.inkFaint)
-
-            Text(title)
-                .font(.sectionLabel)
-                .tracking(1.1)
-                .foregroundStyle(Color.inkFaint)
-
-            // The count is always on. Knowing there are 25 daemons without
-            // having to collapse the section to find out is the point.
-            Text(verbatim: "\(count)")
-                .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                .foregroundStyle(Color.inkFaint.opacity(0.75))
-                .monospacedDigit()
-
-            // Only the chevron rotates; a hidden affordance you have to hover to
-            // find is worse than a small one that is always there.
-            Image(systemName: "chevron.down")
-                .font(.system(size: 7, weight: .bold))
-                .foregroundStyle(Color.inkFaint.opacity(0.7))
-                .rotationEffect(.degrees(collapsed ? -90 : 0))
-
-            Spacer()
-
-            if let action, !collapsed {
-                Button(action: perform) {
-                    Text(action)
-                        .font(.system(size: 9.5, weight: .medium))
-                        .foregroundStyle(Color.alert)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .transition(.opacity)
-            }
-        }
-        // Lines up with the row text above and below it, which it did not.
-        .padding(.horizontal, HoverRowStyle.horizontalPadding)
-        .padding(.top, 6)
-        .padding(.bottom, 2)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            withAnimation(.easeOut(duration: 0.22)) { toggleCollapsed(title) }
-            // The window resize is AppKit's, not SwiftUI's, so it has to be
-            // told. Waiting for the 1s poll is what made it land as a jump.
-            NotificationCenter.default.post(name: .perchPanelLayoutChanged, object: nil)
-        }
-    }
-
-    // MARK: - Collapse
-
-    func isCollapsed(_ title: String) -> Bool {
-        !expanded.contains(title)
-    }
-
-    func toggleCollapsed(_ title: String) {
-        if !expanded.insert(title).inserted { expanded.remove(title) }
+            .panelCard()
+        )
     }
 
     /// One 30pt strip rather than three stacked rows: the list above it is the
@@ -326,4 +335,16 @@ private extension MenuBarView {
         .padding(.horizontal, 9)
         .padding(.vertical, 5)
     }
+}
+
+// MARK: - Section descriptor
+
+/// One perch's worth of state. The strip and the open card read from the same
+/// five values, so a count in the strip cannot disagree with the rows below it.
+struct RoostSection {
+    let title: String
+    let icon: String
+    let count: Int
+    let isAlert: Bool
+    let rows: () -> AnyView
 }

@@ -29,6 +29,10 @@ struct PreviewScenario {
     /// Port (not pid) -> restart failure. The only way to see `FailureBox`, which
     /// otherwise renders solely when a real relaunch dies.
     var restartFailures: [Int: String] = [:]
+
+    /// Which perch the roost opens. One section is open at a time, so a
+    /// scenario that exists to exercise a section has to name it.
+    var open: String = "CLAUDE"
 }
 
 // MARK: - Scenarios
@@ -131,7 +135,8 @@ extension PreviewScenario {
         ],
         restartFailures: [
             3000: "Error: listen EADDRINUSE: address already in use :::3000\n    at Server.setupListenHandle [as _listen2] (node:net:1817:16)"
-        ]
+        ],
+        open: "DEV SERVERS"
     )
 
     /// Two rows and a usage strip. The panel is a fixed 640pt tall, so this is
@@ -152,7 +157,8 @@ extension PreviewScenario {
                        resetsAt: resets(in: 4.8), modelName: nil),
             UsageLimit(kind: "weekly_all", percent: 12, severity: "normal",
                        resetsAt: resets(in: 120), modelName: nil)
-        ]
+        ],
+        open: "DAEMONS"
     )
 
     /// Nothing running, no usage data. The empty state is a first impression
@@ -202,10 +208,10 @@ enum PreviewHarness {
                         if scenario.set == "welcome" {
                             WelcomeView(step: scenario.step)
                         } else {
-                            // Sections open shut in the real panel. Opening two
+                            // Sections open shut in the real panel. Opening one
                             // here is what makes a round about the rows rather
-                            // than about five section headers.
-                            MenuBarView(page: scenario.page, expanded: ["CLAUDE", "DEV SERVERS"])
+                            // than about an empty roost.
+                            MenuBarView(page: scenario.page, open: scenario.open)
                                 .environment(AppState(frozen: scenario))
                                 .environment(ScrollActivity())
                                 // The real panel asks SwiftUI for its *ideal*
