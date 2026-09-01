@@ -13,6 +13,14 @@ enum OwlGeometry {
     /// the reason to be an owl at all: eye state stays readable at menu bar size.
     static let eyeSpacingRatio: CGFloat = 3.7
     static let eyeWidthRatio: CGFloat = 5.8
+    /// Where an eye sits on the cylinder the menu bar owl turns on, measured
+    /// from the beak. ~24°: wide enough that the far eye vanishes well before
+    /// the near one reaches the edge of the head, which is what makes a turn
+    /// read as depth rather than as two circles sliding.
+    static let eyeAzimuth: CGFloat = 0.42
+    /// A feature is dropped once it is this close to edge-on. Below it the
+    /// foreshortened width is under a rendered pixel and it flickers.
+    static let cullCosine: CGFloat = 0.07
     static let eyeHeightRatio: CGFloat = 5.8
     static let minEyeHeightRatio: CGFloat = 0.7
     /// The eyes ride high in the head — an owl's sit up under the brow, and a

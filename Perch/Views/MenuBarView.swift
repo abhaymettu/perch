@@ -16,8 +16,9 @@ struct MenuBarView: View {
 
     @State private var page: Page
 
-    init(page: Page = .main) {
+    init(page: Page = .main, expanded: Set<String> = []) {
         _page = State(initialValue: page)
+        _expanded = State(initialValue: expanded)
     }
 
     /// Which sections are open, not which are closed — everything starts shut
