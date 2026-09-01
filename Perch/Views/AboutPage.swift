@@ -9,9 +9,11 @@ struct AboutPage: View {
             PanelDivider()
 
             // Still, not animated: the owl moves in the menu bar, which is where
-            // you actually look at it. Here it is a portrait.
+            // you actually look at it. Here it is a portrait. No plinth: the
+            // glow alone lifts it off the ground without drawing a circle.
             OwlHead(size: 58)
-                .owlPlinth()
+                .shadow(color: Color.accent.opacity(0.30), radius: 18)
+                .frame(width: 86, height: 86)
                 .padding(.top, 24)
 
             Text("Perch")
