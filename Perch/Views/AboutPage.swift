@@ -37,7 +37,7 @@ struct AboutPage: View {
                 .padding(.top, 10)
 
             PanelGroup(label: "MADE BY", icon: "hammer") {
-                PanelRow("mo.software", glyph: "arrow.up.right") {
+                PanelRow("abhaymettu", glyph: "arrow.up.right") {
                     NSWorkspace.shared.open(Perch.authorURL)
                 }
             }
