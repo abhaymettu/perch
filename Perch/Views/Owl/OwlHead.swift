@@ -16,6 +16,7 @@ struct OwlHead: View {
     /// on. The stroke is what gives it a silhouette at 20pt.
     private let faceColor = Color.white.opacity(0.13)
     private let faceEdgeColor = Color.white.opacity(0.34)
+    private let discColor = Color.white.opacity(0.17)
     private let eyeColor = Color.white.opacity(0.92)
 
     var body: some View {
@@ -27,6 +28,15 @@ struct OwlHead: View {
 
             context.fill(head, with: .color(faceColor))
             context.stroke(head, with: .color(faceEdgeColor), lineWidth: lineWidth)
+
+            // The facial disc. Too fine a line to survive 22pt, so the menu bar
+            // glyph does without it and only the panel head gets the dish.
+            let inset = OwlGeometry.faceDiscInsetRatio * scale
+            context.stroke(
+                OwlGeometry.headPath(in: faceRect.insetBy(dx: inset, dy: inset)),
+                with: .color(discColor),
+                lineWidth: max(0.5, lineWidth * 0.7)
+            )
 
             let eyeCenterY = faceRect.midY - OwlGeometry.eyeCenterOffsetRatio * scale + pupilOffset.y * scale
             let eyeSpacing = OwlGeometry.eyeSpacingRatio * scale

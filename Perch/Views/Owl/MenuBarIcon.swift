@@ -55,9 +55,9 @@ private struct MenuBarOwl: View {
                 punch.addPath(OwlGeometry.eyePath(in: eyeRect, innerIsRight: xOffset < 0))
             }
 
-            // The features are cut out of the disc by an inverse clip rather than
+            // The features are cut out of the head by an inverse clip rather than
             // an even-odd fill, so the beak wedge and the eyes can overlap the
-            // disc's own curves without punching each other back in.
+            // head's own curves without punching each other back in.
             context.clip(to: punch, options: .inverse)
             let tint: Color = alert ? .alert : .black
             context.fill(OwlGeometry.headPath(in: faceRect), with: .color(tint))
