@@ -18,7 +18,7 @@ struct UsageStrip: View {
                 }
             }
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 12)
         .padding(.top, 11)
         .padding(.bottom, 12)
         .contentShape(Rectangle())
