@@ -151,11 +151,11 @@ enum ClaudeScanner {
     /// processes where there were 25.
     static func selfCheck() {
         let fixture = """
-        99748  1 /Users/abhay/.local/share/claude/versions/2.1.0/claude remote-control --name chief
-        27253 99748 /Users/abhay/.local/share/claude/versions/2.1.0/claude --print --sdk-url https://x --session-id a1b2c3d4e5f6
+        99748  1 /Users/dev/.local/share/claude/versions/2.1.0/claude remote-control --name api
+        27253 99748 /Users/dev/.local/share/claude/versions/2.1.0/claude --print --sdk-url https://x --session-id a1b2c3d4e5f6
         41002  1 claude
          3311  1 /Applications/Claude.app/Contents/MacOS/Claude
-        88120 41002 /bin/zsh -c source /Users/abhay/.claude/shell-snapshots/snapshot-zsh-1.sh && npm test
+        88120 41002 /bin/zsh -c source /Users/dev/.claude/shell-snapshots/snapshot-zsh-1.sh && npm test
         """
 
         let processes = parse(fixture)
@@ -166,11 +166,11 @@ enum ClaudeScanner {
         let kinds = processes.map { classify($0.args)?.kind }
         assert(kinds == [.remoteControl, .headless, .interactive, .desktop, nil], "got \(kinds)")
 
-        assert(classify(processes[0].args)?.name == "chief")
+        assert(classify(processes[0].args)?.name == "api")
         assert(classify(processes[1].args)?.name == "", "headless names come from cwd, not argv")
         assert(classify(processes[2].args)?.name == "", "interactive names come from cwd, not argv")
 
-        // Grouping: the headless session under chief is not its own row.
+        // Grouping: the headless session under the api lane is not its own row.
         let candidates = processes.compactMap { process -> Candidate? in
             guard let (kind, name) = classify(process.args) else { return nil }
             return Candidate(process: process, kind: kind, rawName: name)

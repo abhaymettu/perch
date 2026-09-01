@@ -10,7 +10,7 @@ struct LaunchAgentRowView: View {
         HStack(spacing: 0) {
             ColorBar(color: agent.color)
 
-            Text(agent.label.replacingOccurrences(of: "com.abhay.", with: ""))
+            Text(agent.shortLabel)
                 .font(.rowTitle)
                 .foregroundStyle(Color.ink)
                 .lineLimit(1)

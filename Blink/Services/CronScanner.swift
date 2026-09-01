@@ -7,9 +7,9 @@ struct CronJob: Identifiable, Hashable {
     let command: String
 }
 
-/// Empty on this machine — both crontab lines were folded into numen on
-/// 2026-08-15 and commented out. Kept because a job can reappear, and the
-/// section auto-hides when the list is empty.
+/// Most machines have an empty crontab now that the same work tends to live in
+/// a LaunchAgent. The section auto-hides when the list is empty, so it costs
+/// nothing to keep for the machines that still use one.
 ///
 /// ponytail: no next-run-time. A cron expression parser is real work for a
 /// section that currently renders nothing; add one if jobs come back.

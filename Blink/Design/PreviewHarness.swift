@@ -47,44 +47,44 @@ extension PreviewScenario {
         Date().addingTimeInterval(hours * 3600)
     }
 
-    /// A normal working afternoon. This is what he sees 95% of the time, so it
-    /// is the one that has to be beautiful rather than merely legible.
+    /// A normal working afternoon — the state the panel is in 95% of the time,
+    /// so it is the one that has to be beautiful rather than merely legible.
     static let busy = PreviewScenario(
         name: "busy",
         sessions: [
-            ClaudeSession(id: "lane:chief", pid: 4102, kind: .remoteControl, name: "chief",
-                          workingDirectory: "/Users/abhay", startedAt: ago(38),
+            ClaudeSession(id: "lane:api", pid: 4102, kind: .remoteControl, name: "api",
+                          workingDirectory: "/Users/dev", startedAt: ago(38),
                           childCount: 1, activeSince: ago(0.62)),
-            ClaudeSession(id: "lane:brain", pid: 4110, kind: .remoteControl, name: "brain",
-                          workingDirectory: "/Users/abhay/Brain", startedAt: ago(38),
+            ClaudeSession(id: "lane:docs", pid: 4110, kind: .remoteControl, name: "docs",
+                          workingDirectory: "/Users/dev/docs", startedAt: ago(38),
                           childCount: 0, activeSince: nil),
-            ClaudeSession(id: "lane:networking", pid: 4118, kind: .remoteControl, name: "networking",
-                          workingDirectory: "/Users/abhay/net", startedAt: ago(38),
+            ClaudeSession(id: "lane:infra", pid: 4118, kind: .remoteControl, name: "infra",
+                          workingDirectory: "/Users/dev/infra", startedAt: ago(38),
                           childCount: 1, activeSince: ago(2.4)),
-            ClaudeSession(id: "interactive:9821", pid: 9821, kind: .interactive, name: "Blink Fork",
-                          workingDirectory: "/Users/abhay/Desktop/Playground/blink-fork",
+            ClaudeSession(id: "interactive:9821", pid: 9821, kind: .interactive, name: "Blink",
+                          workingDirectory: "/Users/dev/code/blink",
                           startedAt: ago(1.3), childCount: 3, activeSince: nil),
-            ClaudeSession(id: "headless:7734", pid: 7734, kind: .headless, name: "Idea Scout",
-                          workingDirectory: "/Users/abhay/Desktop/Playground",
+            ClaudeSession(id: "headless:7734", pid: 7734, kind: .headless, name: "Nightly Digest",
+                          workingDirectory: "/Users/dev/code",
                           startedAt: ago(2.1), childCount: 0, activeSince: nil)
         ],
         servers: [
             DevServer(pid: 3301, port: 3000, command: "next dev", framework: .nextjs,
-                      projectName: "Tsenta Web", projectPath: "/Users/abhay/tsenta"),
+                      projectName: "Storefront", projectPath: "/Users/dev/storefront"),
             DevServer(pid: 3388, port: 5173, command: "vite", framework: .vite,
-                      projectName: "Covary", projectPath: "/Users/abhay/covary")
+                      projectName: "Dashboard", projectPath: "/Users/dev/dashboard")
         ],
         simulators: [
             Simulator(udid: "A1", name: "iPhone 17 Pro", runtime: "iOS 26.0",
-                      runningApp: .init(bundleID: "com.abhay.numen", displayName: "Numen"))
+                      runningApp: .init(bundleID: "com.example.fieldkit", displayName: "FieldKit"))
         ],
         agents: [
-            LaunchAgent(label: "com.abhay.rc-up", pid: 812, lastExitStatus: 0,
-                        schedule: nil, plistPath: "/Users/abhay/Library/LaunchAgents/com.abhay.rc-up.plist"),
-            LaunchAgent(label: "com.abhay.brain-babysitter", pid: nil, lastExitStatus: 0,
-                        schedule: "every 30 min", plistPath: "/Users/abhay/Library/LaunchAgents/bb.plist"),
-            LaunchAgent(label: "com.abhay.numen-sweep", pid: nil, lastExitStatus: 0,
-                        schedule: "daily 09:00", plistPath: "/Users/abhay/Library/LaunchAgents/ns.plist")
+            LaunchAgent(label: "com.example.tunnel", pid: 812, lastExitStatus: 0,
+                        schedule: nil, plistPath: "/Users/dev/Library/LaunchAgents/com.example.tunnel.plist"),
+            LaunchAgent(label: "com.example.backup", pid: nil, lastExitStatus: 0,
+                        schedule: "every 30 min", plistPath: "/Users/dev/Library/LaunchAgents/bb.plist"),
+            LaunchAgent(label: "com.example.fieldkit-sweep", pid: nil, lastExitStatus: 0,
+                        schedule: "daily 09:00", plistPath: "/Users/dev/Library/LaunchAgents/ns.plist")
         ],
         limits: [
             UsageLimit(kind: "session", percent: 7, severity: "normal",
@@ -101,25 +101,25 @@ extension PreviewScenario {
     static let hot = PreviewScenario(
         name: "hot",
         sessions: [
-            ClaudeSession(id: "headless:7734", pid: 7734, kind: .headless, name: "Idea Scout",
-                          workingDirectory: "/Users/abhay/Desktop/Playground",
+            ClaudeSession(id: "headless:7734", pid: 7734, kind: .headless, name: "Nightly Digest",
+                          workingDirectory: "/Users/dev/code",
                           startedAt: ago(17.2), childCount: 0, activeSince: nil),
-            ClaudeSession(id: "lane:phd", pid: 4130, kind: .remoteControl, name: "phd",
-                          workingDirectory: "/Users/abhay/phd", startedAt: ago(40),
+            ClaudeSession(id: "lane:data", pid: 4130, kind: .remoteControl, name: "data",
+                          workingDirectory: "/Users/dev/data", startedAt: ago(40),
                           childCount: 1, activeSince: ago(14.6))
         ],
         servers: [
             DevServer(pid: 3301, port: 3000, command: "next dev", framework: .nextjs,
-                      projectName: "Tsenta Web", projectPath: "/Users/abhay/tsenta")
+                      projectName: "Storefront", projectPath: "/Users/dev/storefront")
         ],
         agents: [
-            LaunchAgent(label: "com.abhay.rc-up", pid: nil, lastExitStatus: 78,
-                        schedule: nil, plistPath: "/Users/abhay/Library/LaunchAgents/com.abhay.rc-up.plist"),
-            LaunchAgent(label: "com.abhay.brain-babysitter", pid: 903, lastExitStatus: 0,
-                        schedule: nil, plistPath: "/Users/abhay/Library/LaunchAgents/bb.plist")
+            LaunchAgent(label: "com.example.tunnel", pid: nil, lastExitStatus: 78,
+                        schedule: nil, plistPath: "/Users/dev/Library/LaunchAgents/com.example.tunnel.plist"),
+            LaunchAgent(label: "com.example.backup", pid: 903, lastExitStatus: 0,
+                        schedule: nil, plistPath: "/Users/dev/Library/LaunchAgents/bb.plist")
         ],
         cronJobs: [
-            CronJob(schedule: "*/15 * * * *", command: "~/bin/inbox-sweep")
+            CronJob(schedule: "*/15 * * * *", command: "~/bin/backup")
         ],
         limits: [
             UsageLimit(kind: "session", percent: 94, severity: "critical",
@@ -140,12 +140,12 @@ extension PreviewScenario {
         name: "quiet",
         sessions: [
             ClaudeSession(id: "interactive:9821", pid: 9821, kind: .interactive, name: "Scratch",
-                          workingDirectory: "/Users/abhay/scratch",
+                          workingDirectory: "/Users/dev/scratch",
                           startedAt: ago(0.4), childCount: 0, activeSince: nil)
         ],
         agents: [
-            LaunchAgent(label: "com.abhay.rc-up", pid: 812, lastExitStatus: 0,
-                        schedule: nil, plistPath: "/Users/abhay/Library/LaunchAgents/com.abhay.rc-up.plist")
+            LaunchAgent(label: "com.example.tunnel", pid: 812, lastExitStatus: 0,
+                        schedule: nil, plistPath: "/Users/dev/Library/LaunchAgents/com.example.tunnel.plist")
         ],
         limits: [
             UsageLimit(kind: "session", percent: 3, severity: "normal",
@@ -162,9 +162,9 @@ extension PreviewScenario {
     static let settings = PreviewScenario(name: "settings", page: .settings, set: "pages")
     static let about = PreviewScenario(name: "about", page: .about, set: "pages")
 
-    /// The first-launch window. He will never see it again — `hasLaunchedBefore`
-    /// is long since true — but it is a fresh install's entire first impression,
-    /// and it stayed on the stock system look for the whole redesign.
+    /// The first-launch window. Nobody who has already run Blink will see it
+    /// again — `hasLaunchedBefore` is set — but it is a fresh install's entire
+    /// first impression, and it stayed on the stock system look for a long time.
     static let welcome = PreviewScenario(name: "welcome", set: "welcome")
     static let welcomeAccess = PreviewScenario(name: "welcome · access", set: "welcome", step: 1)
 }
