@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct HoverRowStyle: ViewModifier {
-    static let horizontalPadding: CGFloat = 8.5
+    static let horizontalPadding: CGFloat = 9
 
     @Environment(ScrollActivity.self) private var scrollActivity
 
@@ -16,14 +16,13 @@ struct HoverRowStyle: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(.horizontal, Self.horizontalPadding)
-            .padding(.vertical, 8)
+            .padding(.vertical, 6)
             .contentShape(Rectangle())
             .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isHovered ? Color.primary.opacity(0.06) : .clear)
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(Color.white.opacity(isHovered ? 0.055 : 0))
             )
-            .scaleEffect(isHovered ? 1.005 : 1.0)
-            .animation(.easeOut(duration: 0.15), value: isHovered)
+            .animation(.easeOut(duration: 0.13), value: isHovered)
             .onHover { hovering in
                 if hovering && scrollActivity.isScrolling { return }
                 isHovered = hovering

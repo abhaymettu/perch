@@ -26,7 +26,13 @@ struct ClaudeSession: Identifiable, Hashable {
     /// lane's own uptime — an idle lane running for a week is fine.
     var displayAge: TimeInterval { Date().timeIntervalSince(activeSince ?? startedAt) }
 
-    var isStale: Bool { displayAge > kind.staleAfter }
+    /// A lane with no live session is idle, not stale — `displayAge` falls back
+    /// to the lane's own uptime, and lanes are up for days on purpose. Without
+    /// this the panel cries wolf every morning.
+    var isStale: Bool {
+        if kind == .remoteControl && activeSince == nil { return false }
+        return displayAge > kind.staleAfter
+    }
 }
 
 // MARK: - Kind

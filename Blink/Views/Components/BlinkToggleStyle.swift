@@ -3,13 +3,13 @@ import SwiftUI
 // The native switch ignores every public accent channel inside an agent
 // panel, so the track is drawn rather than tinted.
 struct BlinkToggleStyle: ToggleStyle {
-    private static let scale: CGFloat = 22.0 / 28.0
-
-    private static let trackWidth = 64 * scale
-    private static let trackHeight = 28 * scale
-    private static let knobWidth = 38 * scale
-    private static let knobHeight = 24 * scale
-    private static let inset = 2 * scale
+    // A 50x22 switch with a fat pill knob was the loudest object on a 328pt
+    // panel — two of them read as the page's subject rather than its controls.
+    private static let trackWidth: CGFloat = 34
+    private static let trackHeight: CGFloat = 19
+    private static let knobWidth: CGFloat = 15
+    private static let knobHeight: CGFloat = 15
+    private static let inset: CGFloat = 2
 
     func makeBody(configuration: Configuration) -> some View {
         let travel = (Self.trackWidth - Self.knobWidth) / 2 - Self.inset

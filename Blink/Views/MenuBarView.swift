@@ -1,11 +1,24 @@
 import SwiftUI
 
 struct MenuBarView: View {
-    static let panelSize = CGSize(width: 320, height: 560)
+    static let panelWidth: CGFloat = 328
+
+    /// The panel is as tall as what is running. A fixed 640 left half the panel
+    /// as empty black on a quiet afternoon, which is most afternoons.
+    static let minHeight: CGFloat = 232
+    static let maxListHeight: CGFloat = 452
+
+    /// The panel opens at full height before SwiftUI reports its real one; this
+    /// is only the first frame's guess.
+    static let panelSize = CGSize(width: panelWidth, height: 560)
 
     @Environment(AppState.self) private var appState
 
-    @State private var page: Page = .main
+    @State private var page: Page
+
+    init(page: Page = .main) {
+        _page = State(initialValue: page)
+    }
 
     /// Comma-joined section titles. A Set is not @AppStorage-encodable and a
     /// five-item list does not justify a Codable wrapper.
@@ -15,20 +28,27 @@ struct MenuBarView: View {
         case main, settings, about
     }
 
+    private func go(to destination: Page) {
+        withAnimation(panelPageChange) { page = destination }
+    }
+
+    private func back() {
+        go(to: .main)
+    }
+
     var body: some View {
         ZStack(alignment: .topLeading) {
-            mainPage
-                .panelPage(isActive: page == .main, restingOffset: -24)
-
-            SettingsPage(isVisible: page == .settings) { page = .main }
-                .frame(maxHeight: .infinity, alignment: .top)
-                .panelPage(isActive: page == .settings, restingOffset: 24)
-
-            AboutPage { page = .main }
-                .frame(maxHeight: .infinity, alignment: .top)
-                .panelPage(isActive: page == .about, restingOffset: 24)
+            switch page {
+            case .main:
+                mainPage.panelPage(offset: -24)
+            case .settings:
+                SettingsPage { back() }.panelPage(offset: 24)
+            case .about:
+                AboutPage { back() }.panelPage(offset: 24)
+            }
         }
-        .frame(width: Self.panelSize.width, height: Self.panelSize.height)
+        .frame(width: Self.panelWidth)
+        .frame(minHeight: Self.minHeight, alignment: .top)
         // Material alone takes the wallpaper's colour; the ground pins the
         // panel to something the wallpaper only tints.
         .background {
@@ -49,8 +69,8 @@ private extension MenuBarView {
             header
             PanelDivider()
 
-            if let block = appState.usage.block {
-                UsageStrip(block: block)
+            if !appState.usage.limits.isEmpty {
+                UsageStrip(monitor: appState.usage)
                 PanelDivider()
             }
 
@@ -60,19 +80,51 @@ private extension MenuBarView {
         }
     }
 
+    /// The wordmark is the least useful text in here — you know which app you
+    /// just opened. It stays small and muted; the status pill on the right is
+    /// what the header is actually for, and it is the panel's only always-on
+    /// colour.
     var header: some View {
-        HStack {
+        HStack(spacing: 9) {
+            AnimatedRobotHead(size: 22, event: appState.lastEvent)
+                .frame(width: 28, height: 28)
+                .background(Color.white.opacity(0.06), in: Circle())
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.07)))
+
             Text("Blink")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color.inkMuted)
 
             Spacer()
 
-            if appState.totalCount > 0 {
-                AnimatedRobotHead(size: 22, event: appState.lastEvent)
-            }
+            statusPill
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 14)
+        .padding(.top, 11)
+        .padding(.bottom, 10)
+    }
+
+    var statusPill: some View {
+        let problem = appState.hasProblem
+        let idle = appState.totalCount == 0
+        let tint: Color = problem ? .alert : (idle ? .inkFaint : .ok)
+        let text = idle ? "idle" : "\(appState.totalCount) running"
+
+        return HStack(spacing: 5) {
+            Circle()
+                .fill(tint)
+                .frame(width: 5, height: 5)
+
+            Text(text)
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(problem ? Color.alert : Color.ink)
+                .monospacedDigit()
+                .contentTransition(.numericText())
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(tint.opacity(0.13), in: Capsule())
+        .help(problem ? "Something is stale or has failed" : "Everything Blink watches is healthy")
     }
 
     @ViewBuilder
@@ -84,14 +136,14 @@ private extension MenuBarView {
                     .font(.body)
                     .foregroundStyle(.secondary)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 150)
             .transition(.opacity)
         } else if !appState.hasAnything {
             EmptyStateView()
                 .transition(.opacity.combined(with: .scale(scale: 0.97)))
         } else {
             ScrollView {
-                VStack(spacing: 12) {
+                VStack(spacing: 10) {
                     claudeSection
                     serverSection
                     daemonSection
@@ -111,6 +163,7 @@ private extension MenuBarView {
                     endPoint: .bottom
                 )
             )
+            .frame(maxHeight: Self.maxListHeight)
             .transition(.opacity.combined(with: .scale(scale: 0.97)))
         }
     }
@@ -167,17 +220,26 @@ private extension MenuBarView {
         @ViewBuilder row: @escaping (Item) -> Row
     ) -> some View {
         if !items.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
                 sectionHeader(title, icon: icon, count: items.count, action: action, perform: perform)
 
                 if !isCollapsed(title) {
-                    ForEach(items) { item in
-                        row(item)
-                            .transition(.asymmetric(
-                                insertion: .move(edge: .top).combined(with: .opacity),
-                                removal: .move(edge: .trailing).combined(with: .opacity)
-                            ))
+                    VStack(spacing: 1) {
+                        ForEach(items) { item in
+                            row(item)
+                                .transition(.asymmetric(
+                                    insertion: .move(edge: .top).combined(with: .opacity),
+                                    removal: .move(edge: .trailing).combined(with: .opacity)
+                                ))
+                        }
                     }
+                    // A card behind the rows is what makes a section read as one
+                    // group; five stacked dividers were doing that job badly.
+                    .padding(.vertical, 3)
+                    .background(
+                        RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            .fill(Color.white.opacity(0.028))
+                    )
                 }
             }
         }
@@ -192,42 +254,48 @@ private extension MenuBarView {
     ) -> some View {
         let collapsed = isCollapsed(title)
 
-        return HStack(spacing: 4) {
+        return HStack(spacing: 5) {
             Image(systemName: icon)
-                .font(.system(size: 9))
-                .frame(width: 12)
-                .foregroundStyle(.secondary.opacity(0.6))
+                .font(.system(size: 8.5, weight: .medium))
+                .frame(width: 11)
+                .foregroundStyle(Color.inkFaint)
 
             Text(title)
-                .font(.system(size: 10, weight: .medium))
-                .tracking(0.8)
-                .foregroundStyle(.secondary.opacity(0.6))
+                .font(.sectionLabel)
+                .tracking(1.1)
+                .foregroundStyle(Color.inkFaint)
 
-            if collapsed {
-                Text(verbatim: "\(count)")
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.secondary.opacity(0.45))
-            }
+            // The count is always on. Knowing there are 25 daemons without
+            // having to collapse the section to find out is the point.
+            Text(verbatim: "\(count)")
+                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                .foregroundStyle(Color.inkFaint.opacity(0.75))
+                .monospacedDigit()
+
+            // Only the chevron rotates; a hidden affordance you have to hover to
+            // find is worse than a small one that is always there.
+            Image(systemName: "chevron.down")
+                .font(.system(size: 7, weight: .bold))
+                .foregroundStyle(Color.inkFaint.opacity(0.7))
+                .rotationEffect(.degrees(collapsed ? -90 : 0))
 
             Spacer()
 
             if let action, !collapsed {
                 Button(action: perform) {
                     Text(action)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: 9.5, weight: .medium))
                         .foregroundStyle(Color.alert)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .transition(.opacity)
             }
-
-            Image(systemName: "chevron.down")
-                .font(.system(size: 8, weight: .semibold))
-                .foregroundStyle(.secondary.opacity(0.5))
-                .rotationEffect(.degrees(collapsed ? -90 : 0))
         }
-        .padding(.horizontal, 4)
+        // Lines up with the row text above and below it, which it did not.
+        .padding(.horizontal, HoverRowStyle.horizontalPadding)
+        .padding(.top, 6)
+        .padding(.bottom, 2)
         .contentShape(Rectangle())
         .onTapGesture {
             withAnimation(.easeOut(duration: 0.2)) { toggleCollapsed(title) }
@@ -250,13 +318,22 @@ private extension MenuBarView {
         collapsedRaw = titles.joined(separator: ",")
     }
 
+    /// One 30pt strip rather than three stacked rows: the list above it is the
+    /// reason the panel exists, and it was losing 100pt to navigation. Bare
+    /// glyphs, not filled circles — three grey pills in a corner read as an
+    /// unrelated widget stuck to the panel.
     var footer: some View {
-        VStack(spacing: 0) {
-            PanelRow("Settings") { page = .settings }
-            PanelDivider()
-            PanelRow("About") { page = .about }
-            PanelDivider()
-            PanelRow("Quit") { NSApplication.shared.terminate(nil) }
+        HStack(spacing: 0) {
+            FooterAction(symbol: "gearshape", help: "Settings") { go(to: .settings) }
+            FooterAction(symbol: "info.circle", help: "About") { go(to: .about) }
+
+            Spacer()
+
+            FooterAction(symbol: "power", help: "Quit Blink", hoverTint: .alert) {
+                NSApplication.shared.terminate(nil)
+            }
         }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 5)
     }
 }

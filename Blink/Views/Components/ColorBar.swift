@@ -1,14 +1,14 @@
 import SwiftUI
 
 struct ColorBar: View {
-    static let gutter: CGFloat = 13
+    static let gutter: CGFloat = 12
 
     let color: Color
 
     var isWorking: Bool = false
 
-    private static let height: CGFloat = 32
-    private static let highlightHeight: CGFloat = 14
+    private static let height: CGFloat = 15
+    private static let highlightHeight: CGFloat = 8
 
     @State private var travel: CGFloat = -highlightHeight
 
@@ -28,7 +28,7 @@ struct ColorBar: View {
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 1.5))
-            .padding(.trailing, 10)
+            .padding(.trailing, Self.gutter - 3)
             .onAppear { if isWorking { startTravelling() } }
             .onChange(of: isWorking) { _, working in
                 if working {

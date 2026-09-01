@@ -35,25 +35,27 @@ struct ServerRowView: View {
         HStack(spacing: 0) {
             ColorBar(color: barColor, isWorking: isRestarting)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(server.projectName)
-                    .font(.system(size: 12, weight: .medium))
-                    .lineLimit(1)
+            Text(server.projectName)
+                .font(.rowTitle)
+                .foregroundStyle(Color.ink)
+                .lineLimit(1)
 
-                HStack(spacing: 6) {
-                    Text(verbatim: ":\(server.port)")
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                    subtitle
-                }
-            }
-
-            Spacer()
+            Spacer(minLength: 8)
 
             if isHovered && !isRestarting {
                 actions
                     .transition(.opacity)
+            } else {
+                subtitle
+                    .transition(.opacity)
             }
+
+            Text(verbatim: ":\(server.port)")
+                .font(.rowNumber)
+                .foregroundStyle(Color.inkMuted)
+                .monospacedDigit()
+                .frame(width: 38, alignment: .trailing)
+                .padding(.leading, 8)
         }
         .opacity(isRestarting ? 0.4 : 1)
         .allowsHitTesting(!isRestarting)
@@ -77,16 +79,17 @@ private extension ServerRowView {
     var subtitle: some View {
         if isRestarting {
             Text("restarting…")
-                .font(.system(size: 10))
-                .foregroundStyle(.secondary)
+                .font(.rowMeta)
+                .foregroundStyle(Color.inkFaint)
         } else if failureMessage != nil {
             Text("failed to restart")
-                .font(.system(size: 10))
+                .font(.rowMeta)
                 .foregroundStyle(Color.alert)
         } else {
             Text(server.framework == .unknown ? server.command : server.framework.rawValue)
-                .font(.system(size: 10))
-                .foregroundStyle(.secondary)
+                .font(.rowMeta)
+                .foregroundStyle(Color.inkFaint)
+                .lineLimit(1)
         }
     }
 

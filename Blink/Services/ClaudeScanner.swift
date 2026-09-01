@@ -178,6 +178,18 @@ enum ClaudeScanner {
         let byPID = Dictionary(uniqueKeysWithValues: candidates.map { ($0.process.pid, $0) })
         assert(rootPID(of: candidates[1], among: byPID) == 99748, "headless child did not fold into its lane")
         assert(rootPID(of: candidates[0], among: byPID) == nil, "lane should be a root")
+
+        // Staleness. A lane up for days with nothing running is the normal
+        // morning state, not an alarm; the same lane driving a session for
+        // days is the alarm.
+        func lane(up hours: Double, active: Double?) -> ClaudeSession {
+            ClaudeSession(id: "lane:x", pid: 1, kind: .remoteControl, name: "x",
+                          workingDirectory: "/", startedAt: Date(timeIntervalSinceNow: -hours * 3600),
+                          childCount: 0, activeSince: active.map { Date(timeIntervalSinceNow: -$0 * 3600) })
+        }
+        assert(!lane(up: 200, active: nil).isStale, "an idle lane is never stale")
+        assert(lane(up: 200, active: 14).isStale, "a lane driving a 14h session is stale")
+        assert(!lane(up: 200, active: 1).isStale)
     }
     #endif
 

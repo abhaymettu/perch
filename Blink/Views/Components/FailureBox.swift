@@ -26,7 +26,7 @@ struct FailureBox: View {
         HStack(alignment: isSingleLine ? .center : .top, spacing: 8) {
             Text(headline)
                 .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.inkMuted)
                 .lineLimit(Self.lineLimit)
                 .truncationMode(.tail)
                 .fixedSize(horizontal: false, vertical: true)
@@ -42,9 +42,15 @@ struct FailureBox: View {
         }
         .onPreferenceChange(TextHeightKey.self) { textHeight = $0 }
         .padding(Self.inset)
+        // A neutral grey box made a crash look like a note. It is the one thing
+        // in the panel you are meant to read, so it carries the alert tint.
         .background {
             RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
-                .fill(Color.primary.opacity(0.05))
+                .fill(Color.alert.opacity(0.09))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
+                        .strokeBorder(Color.alert.opacity(0.22))
+                )
         }
     }
 
@@ -62,7 +68,7 @@ struct FailureBox: View {
                 .frame(width: 18, height: 18)
                 .background {
                     RoundedRectangle(cornerRadius: Self.radius - Self.inset, style: .continuous)
-                        .fill(Color.primary.opacity(isHoveringCopy ? 0.10 : 0))
+                        .fill(Color.white.opacity(isHoveringCopy ? 0.10 : 0))
                 }
                 .contentShape(Rectangle())
         }
@@ -73,13 +79,21 @@ struct FailureBox: View {
     }
 
     private var glyphColor: Color {
-        if copied { return .green }
-        return isHoveringCopy ? .primary : .secondary
+        if copied { return .ok }
+        return isHoveringCopy ? .ink : .inkMuted
     }
 
-    private var headline: String {
+    private var headline: String { Self.headline(message) }
+
+    /// The three lines you actually read, without the trace under them.
+    static func headline(_ message: String) -> String {
         let lines = message.components(separatedBy: "\n")
-        let body = lines.prefix { !$0.hasPrefix("at ") && !$0.hasPrefix("File \"") }
+        // Trimmed first: a stack frame is indented, so an untrimmed hasPrefix
+        // never matches and the whole trace lands in the box.
+        let body = lines.prefix {
+            let line = $0.trimmingCharacters(in: .whitespaces)
+            return !line.hasPrefix("at ") && !line.hasPrefix("File \"")
+        }
         guard !body.isEmpty else { return lines.first ?? message }
 
         var text = body.joined(separator: "\n")
@@ -87,6 +101,13 @@ struct FailureBox: View {
             text.removeSubrange(prefix)
         }
         return text
+    }
+
+    static func selfCheck() {
+        assert(headline("Error: listen EADDRINUSE: address already in use :::3000\n    at Server.setupListenHandle (node:net:1817:16)")
+               == "listen EADDRINUSE: address already in use :::3000")
+        assert(headline("Traceback:\n  File \"a.py\", line 3") == "Traceback:")
+        assert(headline("    at Server.foo") == "    at Server.foo")
     }
 }
 

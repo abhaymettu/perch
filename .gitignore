@@ -12,5 +12,6 @@ build/
 # macOS
 .DS_Store
 
-# Design sources — kept local, not shipped
-Design/
+# Design sources — kept local, not shipped. Anchored: unanchored it also
+# swallowed Blink/Design/, which is source.
+/Design/

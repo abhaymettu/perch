@@ -9,7 +9,7 @@ final class AppState {
     var agents: [LaunchAgent] = []
     var cronJobs: [CronJob] = []
 
-    let usage = UsageMonitor()
+    let usage: LimitsMonitor
 
     @ObservationIgnored
     @AppStorage("showDesktopHelpers") var showDesktopHelpers = false
@@ -71,12 +71,30 @@ final class AppState {
     // MARK: - Lifecycle
 
     init() {
+        usage = LimitsMonitor()
         startPolling()
     }
 
     deinit {
         timer?.invalidate()
     }
+
+    #if DEBUG
+    /// Frozen state for the preview harness: no poll, no network, so a
+    /// screenshot of round N is comparable to a screenshot of round N+1.
+    init(frozen scenario: PreviewScenario) {
+        usage = LimitsMonitor(frozen: scenario.limits)
+        servers = scenario.servers
+        simulators = scenario.simulators
+        sessions = scenario.sessions
+        agents = scenario.agents
+        cronJobs = scenario.cronJobs
+        restartStates = scenario.restartFailures.mapValues { .failed($0) }
+        isInitialLoad = false
+        isActive = totalCount > 0
+        lastEvent = totalCount > 0 ? .active : .idle
+    }
+    #endif
 
     // MARK: - Polling
 

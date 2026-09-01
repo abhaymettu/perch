@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct SettingsPage: View {
-    let isVisible: Bool
     let back: () -> Void
 
     @AppStorage("showDesktopHelpers") private var showDesktopHelpers = false
@@ -14,43 +13,59 @@ struct SettingsPage: View {
             PanelPageHeader(title: "Settings", back: back)
             PanelDivider()
 
-            PanelToggleRow("Start at login", isOn: $launchAtLogin)
-            PanelDivider()
-            // ~15 Electron helpers, all noise. Off unless asked for.
-            PanelToggleRow("Show Claude Desktop", isOn: $showDesktopHelpers)
+            VStack(spacing: 10) {
+                PanelGroup(label: "GENERAL", icon: "slider.horizontal.3") {
+                    PanelToggleRow(
+                        "Start at login",
+                        caption: "Blink is in the menu bar at boot",
+                        isOn: $launchAtLogin
+                    )
 
-            if let failure {
-                Text(failure)
-                    .font(.system(size: 10))
-                    .foregroundStyle(Color.alert)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 6)
-            }
+                    if let failure {
+                        Text(failure)
+                            .font(.rowMeta)
+                            .foregroundStyle(Color.alert)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, HoverRowStyle.horizontalPadding)
+                            .padding(.bottom, 4)
+                    }
 
-            PanelDivider()
+                    PanelRowDivider()
 
-            if accessibilityTrusted {
-                PanelStatusRow(title: "Simulator focus", detail: "Allowed")
-            } else {
-                PanelRow("Simulator focus", detail: "Not allowed") {
-                    Accessibility.openSystemSettings()
+                    // ~15 Electron helpers, all noise. Off unless asked for.
+                    PanelToggleRow(
+                        "Show Claude Desktop",
+                        caption: "Adds its helper processes to the list",
+                        isOn: $showDesktopHelpers
+                    )
+                }
+
+                PanelGroup(label: "PERMISSIONS", icon: "lock.shield") {
+                    if accessibilityTrusted {
+                        PanelStatusRow(title: "Simulator focus", detail: "Allowed")
+                    } else {
+                        PanelRow("Simulator focus", detail: "Not allowed") {
+                            Accessibility.openSystemSettings()
+                        }
+                    }
+                }
+
+                PanelGroup(label: "HELP", icon: "questionmark.circle") {
+                    PanelRow("Report an issue", glyph: "arrow.up.right") {
+                        NSWorkspace.shared.open(Blink.issuesURL)
+                    }
                 }
             }
+            .padding(12)
 
-            PanelDivider()
-            PanelRow("Report an Issue") {
-                NSWorkspace.shared.open(Blink.issuesURL)
-            }
-            PanelDivider()
-
-            Spacer()
+            Spacer(minLength: 0)
         }
         .onChange(of: launchAtLogin) { _, enabled in
             apply(enabled)
         }
-        .onChange(of: isVisible) { _, visible in
-            guard visible else { return }
+        // The page is built fresh each time it opens now, so this is where the
+        // system-owned toggles get re-read.
+        .onAppear {
             accessibilityTrusted = Accessibility.isTrusted
             launchAtLogin = LoginItem.isEnabled
         }

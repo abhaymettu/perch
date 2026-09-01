@@ -10,25 +10,15 @@ struct ClaudeSessionRowView: View {
         HStack(spacing: 0) {
             ColorBar(color: session.isStale ? .alert : session.kind.color)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(session.name)
-                    .font(.system(size: 12, weight: .medium))
-                    .lineLimit(1)
+            Text(session.name)
+                .font(.rowTitle)
+                .foregroundStyle(Color.ink)
+                .lineLimit(1)
 
-                HStack(spacing: 6) {
-                    Text(Age.short(session.displayAge))
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundStyle(session.isStale ? Color.alert : .secondary)
+            Spacer(minLength: 8)
 
-                    Text(subtitle)
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
-
-            Spacer()
-
+            // The kind is context, not news: it steps aside for the action the
+            // moment the row is the one you are pointing at.
             if isHovered {
                 // No restart: relaunching a session means restoring terminal
                 // and tmux context we cannot reconstruct.
@@ -36,7 +26,20 @@ struct ClaudeSessionRowView: View {
                     appState.killSession(session)
                 }
                 .transition(.opacity)
+            } else {
+                Text(subtitle)
+                    .font(.rowMeta)
+                    .foregroundStyle(Color.inkFaint)
+                    .lineLimit(1)
+                    .transition(.opacity)
             }
+
+            Text(Age.short(session.displayAge))
+                .font(.rowNumber)
+                .foregroundStyle(session.isStale ? Color.alert : Color.inkMuted)
+                .monospacedDigit()
+                .frame(width: 30, alignment: .trailing)
+                .padding(.leading, 8)
         }
         .hoverRow { isHovered = $0 }
         .onTapGesture { appState.revealSession(session) }
@@ -45,7 +48,7 @@ struct ClaudeSessionRowView: View {
     private var subtitle: String {
         var parts = [session.kind.label]
         if session.childCount > 0 {
-            parts.append("\(session.childCount) child\(session.childCount == 1 ? "" : "ren")")
+            parts.append("\(session.childCount)×")
         }
         return parts.joined(separator: " · ")
     }
