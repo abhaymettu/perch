@@ -4,22 +4,24 @@ import SwiftUI
 /// `size / baseSize`, so the whole face scales from one number.
 enum OwlGeometry {
     static let baseSize: CGFloat = 24
+    /// 1.5:1. A head taller than wide reads as a cat or a bear; an owl at rest
+    /// is squat, and the width is also what keeps two eyes legible at 22pt.
     static let faceWidthRatio: CGFloat = 23
-    static let faceHeightRatio: CGFloat = 19
+    static let faceHeightRatio: CGFloat = 15.4
 
     /// Circles, not the robot's 3.4x4.4 bars — nearly double the area, which is
     /// the reason to be an owl at all: eye state stays readable at menu bar size.
-    static let eyeSpacingRatio: CGFloat = 4.2
-    static let eyeWidthRatio: CGFloat = 7.2
-    static let eyeHeightRatio: CGFloat = 7.2
+    static let eyeSpacingRatio: CGFloat = 3.7
+    static let eyeWidthRatio: CGFloat = 5.8
+    static let eyeHeightRatio: CGFloat = 5.8
     static let minEyeHeightRatio: CGFloat = 0.7
-    /// The eyes ride high in the disc — an owl's sit up under the brow, and a
+    /// The eyes ride high in the head — an owl's sit up under the brow, and a
     /// low-set eye is part of what made the first pass read as a cat.
-    static let eyeCenterOffsetRatio: CGFloat = 0.9
+    static let eyeCenterOffsetRatio: CGFloat = 0.8
 
-    static let beakWidthRatio: CGFloat = 2.8
-    static let beakTopRatio: CGFloat = 0.4
-    static let beakDepthRatio: CGFloat = 4.2
+    static let beakWidthRatio: CGFloat = 3.8
+    static let beakTopRatio: CGFloat = 0.6
+    static let beakDepthRatio: CGFloat = 5.4
 
     static func eyeOpenness(for state: OwlHead.EyeState) -> CGFloat {
         switch state {
@@ -30,37 +32,20 @@ enum OwlGeometry {
         }
     }
 
-    /// The head. Not a disc — a brow that dips to a V at the centre and sweeps
-    /// up and out to a point above each eye, over a face that tapers to a
-    /// rounded chin. Ear tufts on a round head read as a cat; this reads as a
-    /// bird of prey, which is the whole difference.
+    /// The head. A wide squircle, not an animal outline: every attempt at a
+    /// drawn silhouette (tufts, brow points, a tapered chin) read as a cat or a
+    /// mask at 22pt. The owl comes from the features, not the shape — glaring
+    /// sliced eyes and a beak inside a squat frame, which is also the only thing
+    /// that survives being a monochrome template image.
     ///
-    /// Every control point is a fraction of `rect`, so it needs no scale.
+    /// `.continuous` matters: a circular corner radius makes it a lozenge.
     static func headPath(in rect: CGRect) -> Path {
-        func p(_ fx: CGFloat, _ fy: CGFloat) -> CGPoint {
-            CGPoint(x: rect.minX + fx * rect.width, y: rect.minY + fy * rect.height)
-        }
-
-        var path = Path()
-        // The tip is sharp because the two curves meeting there leave almost
-        // antiparallel: control2 of the brow and control1 of the outer edge sit
-        // on nearly the same line through it. Splay them and it goes blunt.
-        path.move(to: p(0.50, 0.34))                                   // brow notch
-        path.addCurve(to: p(0.00, 0.02),                               // up to the left tip
-                      control1: p(0.33, 0.15), control2: p(0.13, 0.01))
-        path.addCurve(to: p(0.16, 0.56),                               // down the outer edge
-                      control1: p(0.09, 0.14), control2: p(0.13, 0.35))
-        path.addCurve(to: p(0.50, 1.00),                               // left cheek into the chin
-                      control1: p(0.17, 0.85), control2: p(0.31, 1.00))
-        path.addCurve(to: p(0.84, 0.56),                               // right cheek back up
-                      control1: p(0.69, 1.00), control2: p(0.83, 0.85))
-        path.addCurve(to: p(1.00, 0.02),                               // up the outer edge
-                      control1: p(0.87, 0.35), control2: p(0.91, 0.14))
-        path.addCurve(to: p(0.50, 0.34),                               // back down to the notch
-                      control1: p(0.87, 0.01), control2: p(0.67, 0.15))
-        path.closeSubpath()
-        return path
+        Path(roundedRect: rect, cornerRadius: rect.height * 0.42, style: .continuous)
     }
+
+    /// How far the facial disc sits inside the head edge. An owl's face is a
+    /// dish, and one inner ring is what turns a plain squircle into a face.
+    static let faceDiscInsetRatio: CGFloat = 1.7
 
     /// A circle with the top-inner corner sliced off by the brow. Plain circles
     /// read owlish but placid; the cut is what makes it glare. The slice is
