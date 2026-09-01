@@ -43,10 +43,6 @@ enum OwlGeometry {
         Path(roundedRect: rect, cornerRadius: rect.height * 0.42, style: .continuous)
     }
 
-    /// How far the facial disc sits inside the head edge. An owl's face is a
-    /// dish, and one inner ring is what turns a plain squircle into a face.
-    static let faceDiscInsetRatio: CGFloat = 1.7
-
     /// A circle with the top-inner corner sliced off by the brow. Plain circles
     /// read owlish but placid; the cut is what makes it glare. The slice is
     /// subtracted from the eye rather than drawn over it so that all three

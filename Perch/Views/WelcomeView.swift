@@ -71,7 +71,7 @@ struct WelcomeView: View {
             primary: "Get Started",
             action: { withAnimation(.easeInOut(duration: 0.35)) { step = 1 } }
         ) {
-            AnimatedOwlHead(size: 58, event: .active)
+            OwlHead(size: 58)
         }
     }
 
@@ -121,17 +121,9 @@ private struct StepLayout<Icon: View>: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Same plinth on both screens, so the slot reads as one slot.
             icon
-                .frame(width: 86, height: 86)
-                // The head's fill is tuned for 20pt in a menu bar; over a dark
-                // ground at 3x that it needs something lit to sit on. Same
-                // plinth on both screens, so the slot reads as one slot.
-                .background {
-                    Circle()
-                        .fill(Color.white.opacity(0.07))
-                        .overlay(Circle().strokeBorder(Color.accent.opacity(0.35), lineWidth: 1))
-                        .shadow(color: Color.accent.opacity(0.30), radius: 18)
-                }
+                .owlPlinth()
                 .padding(.top, 18)
 
             Text(title)

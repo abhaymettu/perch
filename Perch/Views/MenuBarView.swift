@@ -81,18 +81,16 @@ private extension MenuBarView {
         }
     }
 
-    /// The wordmark is the least useful text in here — you know which app you
-    /// just opened. It stays small and muted; the status pill on the right is
-    /// what the header is actually for, and it is the panel's only always-on
-    /// colour.
+    /// The owl lives in the menu bar, where you actually look at it. In here it
+    /// was a second copy of a mark you had just clicked, so the header is the
+    /// wordmark and the status pill — the name set as a name rather than as a
+    /// muted caption beside a logo.
     var header: some View {
         HStack(spacing: 9) {
-            AnimatedOwlHead(size: 22, event: appState.lastEvent)
-                .frame(width: 28, height: 28)
-
             Text("Perch")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color.inkMuted)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .tracking(0.4)
+                .foregroundStyle(Color.ink)
 
             Spacer()
 
@@ -130,7 +128,8 @@ private extension MenuBarView {
     var content: some View {
         if appState.isInitialLoad {
             VStack(spacing: 12) {
-                AnimatedOwlHead(size: 48, event: .scanning)
+                ProgressView()
+                    .controlSize(.small)
                 Text("Scanning...")
                     .font(.body)
                     .foregroundStyle(.secondary)
