@@ -1,5 +1,13 @@
 import SwiftUI
 
+extension Notification.Name {
+    /// Panel is being shown. The view resets to a closed, main-page state.
+    static let perchPanelWillOpen = Notification.Name("perch.panel.willOpen")
+    /// The view changed height on its own (a section opened). AppKit owns the
+    /// window frame, so it has to be told rather than poll for it.
+    static let perchPanelLayoutChanged = Notification.Name("perch.panel.layoutChanged")
+}
+
 final class MenuBarController: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var panel: NSPanel!
@@ -72,6 +80,17 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         panel.hasShadow = true
         panel.isReleasedWhenClosed = false
 
+        // Next runloop pass, not this one: the notification is posted from
+        // inside the SwiftUI action, before the layout it is about has run.
+        NotificationCenter.default.addObserver(
+            forName: .perchPanelLayoutChanged, object: nil, queue: .main
+        ) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.panelContentView?.layoutSubtreeIfNeeded()
+                self?.syncPanelHeight()
+            }
+        }
+
         startIconUpdates()
 
         if !hasLaunchedBefore {
@@ -98,7 +117,12 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         }
         panelTopLeft = NSPoint(x: x, y: buttonFrame.minY - 4)
 
-        syncPanelHeight()
+        // Before the height sync, so the panel measures itself already closed
+        // rather than opening tall and then shrinking.
+        NotificationCenter.default.post(name: .perchPanelWillOpen, object: nil)
+        panelContentView?.layoutSubtreeIfNeeded()
+
+        syncPanelHeight(animated: false)
         panel.setFrameTopLeftPoint(panelTopLeft)
         panel.alphaValue = 0
         panel.makeKeyAndOrderFront(nil)
@@ -163,15 +187,25 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     /// is re-pinned after every resize. The `!=` guard makes this idempotent —
     /// that is what stops it becoming the feedback loop `.preferredContentSize`
     /// was.
-    private func syncPanelHeight() {
+    private func syncPanelHeight(animated: Bool = true) {
         guard let content = panelContentView else { return }
 
         let height = max(content.fittingSize.height, MenuBarView.minHeight)
         guard abs(panel.frame.height - height) > 0.5 else { return }
 
-        panel.setContentSize(NSSize(width: MenuBarView.panelWidth, height: height))
-        if panelTopLeft != .zero {
-            panel.setFrameTopLeftPoint(panelTopLeft)
+        // One animated setFrame, not setContentSize plus a re-pin: two separate
+        // frame writes are what made the resize land as a jump and a shove.
+        // maxY is held so the growth goes downward, away from the menu bar.
+        var frame = panel.frame
+        frame.size = NSSize(width: MenuBarView.panelWidth, height: height)
+        frame.origin.y = panel.frame.maxY - height
+
+        guard animated else { return panel.setFrame(frame, display: true) }
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.22
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().setFrame(frame, display: true)
         }
     }
 

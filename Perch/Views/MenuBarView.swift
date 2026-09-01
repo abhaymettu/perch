@@ -20,9 +20,10 @@ struct MenuBarView: View {
         _page = State(initialValue: page)
     }
 
-    /// Comma-joined section titles. A Set is not @AppStorage-encodable and a
-    /// five-item list does not justify a Codable wrapper.
-    @AppStorage("collapsedSections") private var collapsedRaw = ""
+    /// Which sections are open, not which are closed — everything starts shut
+    /// on each open and you expand what you want. Deliberately not persisted:
+    /// the panel is a glance, and a glance is the five section counts.
+    @State private var expanded: Set<String> = []
 
     enum Page {
         case main, settings, about
@@ -53,6 +54,10 @@ struct MenuBarView: View {
                 .overlay(Color.panelGround.opacity(0.80))
         }
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .onReceive(NotificationCenter.default.publisher(for: .perchPanelWillOpen)) { _ in
+            expanded.removeAll()
+            page = .main
+        }
     }
 }
 
@@ -84,8 +89,6 @@ private extension MenuBarView {
         HStack(spacing: 9) {
             AnimatedOwlHead(size: 22, event: appState.lastEvent)
                 .frame(width: 28, height: 28)
-                .background(Color.white.opacity(0.06), in: Circle())
-                .overlay(Circle().strokeBorder(Color.white.opacity(0.07)))
 
             Text("Perch")
                 .font(.system(size: 12, weight: .semibold))
@@ -288,24 +291,21 @@ private extension MenuBarView {
         .padding(.bottom, 2)
         .contentShape(Rectangle())
         .onTapGesture {
-            withAnimation(.easeOut(duration: 0.2)) { toggleCollapsed(title) }
+            withAnimation(.easeOut(duration: 0.22)) { toggleCollapsed(title) }
+            // The window resize is AppKit's, not SwiftUI's, so it has to be
+            // told. Waiting for the 1s poll is what made it land as a jump.
+            NotificationCenter.default.post(name: .perchPanelLayoutChanged, object: nil)
         }
     }
 
     // MARK: - Collapse
 
     func isCollapsed(_ title: String) -> Bool {
-        collapsedRaw.split(separator: ",").contains(Substring(title))
+        !expanded.contains(title)
     }
 
     func toggleCollapsed(_ title: String) {
-        var titles = collapsedRaw.split(separator: ",").map(String.init)
-        if let index = titles.firstIndex(of: title) {
-            titles.remove(at: index)
-        } else {
-            titles.append(title)
-        }
-        collapsedRaw = titles.joined(separator: ",")
+        if !expanded.insert(title).inserted { expanded.remove(title) }
     }
 
     /// One 30pt strip rather than three stacked rows: the list above it is the
