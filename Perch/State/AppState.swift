@@ -107,6 +107,9 @@ final class AppState {
         }
     }
 
+    /// Main-actor for the `withAnimation` below. The scanners it awaits are
+    /// `nonisolated async`, so they still run off the main thread.
+    @MainActor
     func refresh() async {
         guard !isScanning else { return }
         isScanning = true
@@ -136,26 +139,24 @@ final class AppState {
         let filteredSims = newSims.filter { !killedSimUDIDs.contains($0.id) }
         let filteredSessions = newSessions.filter { !killedSessionIDs.contains($0.id) }
 
-        if sessions != filteredSessions { sessions = filteredSessions }
-        if agents != newAgents { agents = newAgents }
-        if cronJobs != newCron { cronJobs = newCron }
-
         clearStaleFailures(among: filteredServers)
         let mergedServers = preservingRestartingRows(filteredServers)
 
-        if servers != mergedServers {
-            servers = mergedServers
-        }
-        if simulators != filteredSims {
-            simulators = filteredSims
-        }
-        if isInitialLoad {
-            isInitialLoad = false
-        }
+        // Every other write to these arrays sits inside a `withAnimation`
+        // because a user action drove it. The poll had none, so the one change
+        // you did not ask for was the one that arrived as a hard cut: counts
+        // jumped rather than rolled, and a new row appeared fully formed
+        // instead of sliding in. Critically damped, like the roost's morph.
+        withAnimation(.spring(response: 0.3, dampingFraction: 1)) {
+            if sessions != filteredSessions { sessions = filteredSessions }
+            if agents != newAgents { agents = newAgents }
+            if cronJobs != newCron { cronJobs = newCron }
+            if servers != mergedServers { servers = mergedServers }
+            if simulators != filteredSims { simulators = filteredSims }
+            if isInitialLoad { isInitialLoad = false }
 
-        let nowActive = totalCount > 0
-        if isActive != nowActive {
-            isActive = nowActive
+            let nowActive = totalCount > 0
+            if isActive != nowActive { isActive = nowActive }
         }
 
         if totalCount > previousCount {
