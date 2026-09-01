@@ -184,9 +184,8 @@ enum PreviewHarness {
 
     private static var window: NSWindow?
 
-    /// Lays every scenario out in one row and prints the window's frame in
-    /// screencapture's coordinates (top-left origin), so a shell loop can
-    /// `screencapture -R` it without hunting for a window id.
+    /// Lays every scenario out in one row, and with `PERCH_UI_SHOT` set writes
+    /// that window to a PNG and quits.
     static func present() {
         let gap: CGFloat = 26
         let scenarios = PreviewScenario.all.filter { $0.set == set }
@@ -247,13 +246,27 @@ enum PreviewHarness {
         NSApp.activate(ignoringOtherApps: true)
         Self.window = window
 
-        // AppKit's origin is bottom-left; screencapture's is top-left.
-        if let screen = window.screen ?? NSScreen.main {
-            let frame = window.frame
-            let top = screen.frame.maxY - frame.maxY
-            print("PREVIEW_RECT \(Int(frame.minX)),\(Int(top)),\(Int(frame.width)),\(Int(frame.height))")
-            fflush(stdout)
+        if let path = ProcessInfo.processInfo.environment["PERCH_UI_SHOT"] {
+            // Let the material and the owl's first frame settle.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                write(window, to: path)
+                NSApp.terminate(nil)
+            }
         }
+    }
+
+    /// Renders the window's own backing store to a PNG. `screencapture` needs a
+    /// Screen Recording grant, and TCC keys that grant to the binary's resolved
+    /// path — which every Claude Code update changes, so the grant is gone by
+    /// the next design round. Drawing it ourselves needs no grant at all.
+    /// Every failure here shows up as a missing file, which `shot.sh` checks.
+    private static func write(_ window: NSWindow, to path: String) {
+        guard let view = window.contentView,
+              let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
+
+        view.cacheDisplay(in: view.bounds, to: rep)
+        try? rep.representation(using: .png, properties: [:])?
+            .write(to: URL(fileURLWithPath: path))
     }
 }
 #endif
