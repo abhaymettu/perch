@@ -94,7 +94,6 @@ struct PanelRow: View {
 struct PanelStatusRow: View {
     let title: String
     let detail: String
-    var tint: Color = .ok
 
     var body: some View {
         HStack(spacing: 7) {
@@ -105,7 +104,7 @@ struct PanelStatusRow: View {
             Spacer(minLength: 0)
 
             Circle()
-                .fill(tint)
+                .fill(Color.ok)
                 .frame(width: 5, height: 5)
 
             Text(detail)

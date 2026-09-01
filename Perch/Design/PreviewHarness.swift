@@ -62,7 +62,7 @@ extension PreviewScenario {
                           workingDirectory: "/Users/dev/infra", startedAt: ago(38),
                           childCount: 1, activeSince: ago(2.4)),
             ClaudeSession(id: "interactive:9821", pid: 9821, kind: .interactive, name: "Perch",
-                          workingDirectory: "/Users/dev/code/blink",
+                          workingDirectory: "/Users/dev/code/perch",
                           startedAt: ago(1.3), childCount: 3, activeSince: nil),
             ClaudeSession(id: "headless:7734", pid: 7734, kind: .headless, name: "Nightly Digest",
                           workingDirectory: "/Users/dev/code",
