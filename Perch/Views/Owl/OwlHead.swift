@@ -55,18 +55,3 @@ struct OwlHead: View {
         .frame(width: size, height: size)
     }
 }
-
-extension View {
-    /// The lit disc the 58pt owl sits on, on About and on Welcome. The head's
-    /// fill is tuned for 20pt in a menu bar; over a dark panel at 3x that it
-    /// needs something lit underneath it.
-    func owlPlinth() -> some View {
-        frame(width: 86, height: 86)
-            .background {
-                Circle()
-                    .fill(Color.white.opacity(0.07))
-                    .overlay(Circle().strokeBorder(Color.accent.opacity(0.35), lineWidth: 1))
-                    .shadow(color: Color.accent.opacity(0.30), radius: 18)
-            }
-    }
-}
