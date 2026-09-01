@@ -257,12 +257,13 @@ function build(data) {
   wordmark.textColor = INK;
   header.addSpacer();
 
+  // "as of 6:10 PM", going amber once the mac has not published in a while.
+  const df = new DateFormatter();
+  df.useShortTimeStyle();
   const age = Math.floor((Date.now() / 1000 - data.fetchedAt) / 60);
-  if (age >= 30) {
-    const stale = header.addText("cached " + (age < 120 ? age + "m" : Math.floor(age / 60) + "h"));
-    stale.font = Font.regularMonospacedSystemFont(8);
-    stale.textColor = WARN;
-  }
+  const asOf = header.addText("as of " + df.string(new Date(data.fetchedAt * 1000)));
+  asOf.font = Font.regularMonospacedSystemFont(8);
+  asOf.textColor = age >= 30 ? WARN : INK_FAINT;
 
   w.addSpacer();
 
