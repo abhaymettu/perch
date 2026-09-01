@@ -146,7 +146,7 @@ struct PanelToggleRow: View {
 
             Toggle("", isOn: isOn)
                 .labelsHidden()
-                .toggleStyle(BlinkToggleStyle())
+                .toggleStyle(PerchToggleStyle())
         }
         .padding(.horizontal, HoverRowStyle.horizontalPadding)
         .padding(.vertical, 6)

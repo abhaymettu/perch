@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum RobotBlink {
+enum OwlBlink {
     static let interval: ClosedRange<Double> = 3.0...5.0
 
     static let closeDuration: TimeInterval = 0.07
@@ -10,7 +10,7 @@ enum RobotBlink {
     static var duration: TimeInterval { closeDuration + holdDuration + openDuration }
 
     static func openness(at elapsed: TimeInterval) -> CGFloat {
-        let fullyOpen = RobotGeometry.eyeOpenness(for: .open)
+        let fullyOpen = OwlGeometry.eyeOpenness(for: .open)
 
         if elapsed < closeDuration {
             return fullyOpen * (1 - easeIn(elapsed / closeDuration))

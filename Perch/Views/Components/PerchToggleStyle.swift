@@ -2,7 +2,7 @@ import SwiftUI
 
 // The native switch ignores every public accent channel inside an agent
 // panel, so the track is drawn rather than tinted.
-struct BlinkToggleStyle: ToggleStyle {
+struct PerchToggleStyle: ToggleStyle {
     // A 50x22 switch with a fat pill knob was the loudest object on a 328pt
     // panel — two of them read as the page's subject rather than its controls.
     private static let trackWidth: CGFloat = 34

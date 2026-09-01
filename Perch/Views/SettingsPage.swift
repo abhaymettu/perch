@@ -17,7 +17,7 @@ struct SettingsPage: View {
                 PanelGroup(label: "GENERAL", icon: "slider.horizontal.3") {
                     PanelToggleRow(
                         "Start at login",
-                        caption: "Blink is in the menu bar at boot",
+                        caption: "Perch is in the menu bar at boot",
                         isOn: $launchAtLogin
                     )
 
@@ -52,7 +52,7 @@ struct SettingsPage: View {
 
                 PanelGroup(label: "HELP", icon: "questionmark.circle") {
                     PanelRow("Report an issue", glyph: "arrow.up.right") {
-                        NSWorkspace.shared.open(Blink.issuesURL)
+                        NSWorkspace.shared.open(Perch.issuesURL)
                     }
                 }
             }

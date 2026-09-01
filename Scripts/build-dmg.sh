@@ -1,9 +1,9 @@
 #!/bin/bash
 #
 # build-dmg.sh
-# Creates a styled DMG installer for Blink
+# Creates a styled DMG installer for Perch
 #
-# Usage: ./Scripts/build-dmg.sh path/to/Blink.app
+# Usage: ./Scripts/build-dmg.sh path/to/Perch.app
 #
 
 set -e
@@ -12,10 +12,10 @@ APP_PATH="$1"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 OUTPUT_DIR="$PROJECT_ROOT/build"
-DMG_NAME="Blink"
+DMG_NAME="Perch"
 
 if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
-    echo "Usage: ./Scripts/build-dmg.sh path/to/Blink.app"
+    echo "Usage: ./Scripts/build-dmg.sh path/to/Perch.app"
     exit 1
 fi
 
@@ -30,7 +30,7 @@ create-dmg \
     --window-pos 200 120 \
     --window-size 600 400 \
     --icon-size 120 \
-    --icon "Blink.app" 125 151 \
+    --icon "Perch.app" 125 151 \
     --app-drop-link 465 150 \
     --no-internet-enable \
     "$OUTPUT_DIR/$DMG_NAME.dmg" \

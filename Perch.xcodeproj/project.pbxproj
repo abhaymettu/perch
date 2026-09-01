@@ -7,11 +7,11 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		AC000001 /* Blink.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Blink.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AC000001 /* Perch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Perch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		BA000001 /* Blink */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Blink; sourceTree = "<group>"; };
+		BA000001 /* Perch */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Perch; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -28,7 +28,7 @@
 		AE000001 = {
 			isa = PBXGroup;
 			children = (
-				BA000001 /* Blink */,
+				BA000001 /* Perch */,
 				AE000006 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -36,7 +36,7 @@
 		AE000006 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				AC000001 /* Blink.app */,
+				AC000001 /* Perch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -44,9 +44,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		AF000001 /* Blink */ = {
+		AF000001 /* Perch */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = B1000001 /* Build configuration list for PBXNativeTarget "Blink" */;
+			buildConfigurationList = B1000001 /* Build configuration list for PBXNativeTarget "Perch" */;
 			buildPhases = (
 				AG000001 /* Sources */,
 				AD000001 /* Frameworks */,
@@ -57,11 +57,11 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				BA000001 /* Blink */,
+				BA000001 /* Perch */,
 			);
-			name = Blink;
-			productName = Blink;
-			productReference = AC000001 /* Blink.app */;
+			name = Perch;
+			productName = Perch;
+			productReference = AC000001 /* Perch.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -74,7 +74,7 @@
 				LastSwiftUpdateCheck = 1540;
 				LastUpgradeCheck = 2630;
 			};
-			buildConfigurationList = B2000001 /* Build configuration list for PBXProject "Blink" */;
+			buildConfigurationList = B2000001 /* Build configuration list for PBXProject "Perch" */;
 			compatibilityVersion = "Xcode 15.3";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -87,7 +87,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				AF000001 /* Blink */,
+				AF000001 /* Perch */,
 			);
 		};
 /* End PBXProject section */
@@ -238,13 +238,13 @@
 				INFOPLIST_FILE = "";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 mo.software";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Abhay Mettu. Portions copyright © 2026 mo.software.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.2;
-				PRODUCT_BUNDLE_IDENTIFIER = co.deliciouslyhuman.Blink;
+				PRODUCT_BUNDLE_IDENTIFIER = com.abhay.Perch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -269,13 +269,13 @@
 				INFOPLIST_FILE = "";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 mo.software";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Abhay Mettu. Portions copyright © 2026 mo.software.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.2;
-				PRODUCT_BUNDLE_IDENTIFIER = co.deliciouslyhuman.Blink;
+				PRODUCT_BUNDLE_IDENTIFIER = com.abhay.Perch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -286,7 +286,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		B1000001 /* Build configuration list for PBXNativeTarget "Blink" */ = {
+		B1000001 /* Build configuration list for PBXNativeTarget "Perch" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				B4000001 /* Debug */,
@@ -295,7 +295,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		B2000001 /* Build configuration list for PBXProject "Blink" */ = {
+		B2000001 /* Build configuration list for PBXProject "Perch" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				B3000001 /* Debug */,

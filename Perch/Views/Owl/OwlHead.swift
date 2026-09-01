@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct RobotHead: View {
+struct OwlHead: View {
     var size: CGFloat = 18
     var eyeState: EyeState = .open
     var pupilOffset: CGPoint = .zero
@@ -9,8 +9,8 @@ struct RobotHead: View {
         case open, halfClosed, closed, wide
     }
 
-    private var scale: CGFloat { size / RobotGeometry.baseSize }
-    private var eyeOpenness: CGFloat { RobotGeometry.eyeOpenness(for: eyeState) }
+    private var scale: CGFloat { size / OwlGeometry.baseSize }
+    private var eyeOpenness: CGFloat { OwlGeometry.eyeOpenness(for: eyeState) }
 
     /// A 0.28 fill with no edge left the head a smudge that the eyes floated
     /// on. The stroke is what gives it a silhouette at 20pt.
@@ -21,24 +21,18 @@ struct RobotHead: View {
     var body: some View {
         Canvas { context, canvasSize in
             let mid = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
+            let faceRect = OwlGeometry.faceRect(centeredAt: mid, scale: scale)
+            let head = OwlGeometry.headPath(in: faceRect)
+            let lineWidth = max(1, scale)
 
-            let faceWidth = RobotGeometry.faceWidthRatio * scale
-            let faceHeight = RobotGeometry.faceHeightRatio * scale
-            let faceRect = CGRect(
-                x: mid.x - faceWidth / 2,
-                y: mid.y - faceHeight / 2,
-                width: faceWidth,
-                height: faceHeight
-            )
-            let facePath = Path(roundedRect: faceRect, cornerRadius: RobotGeometry.faceCornerRadiusRatio * scale)
-            context.fill(facePath, with: .color(faceColor))
-            context.stroke(facePath, with: .color(faceEdgeColor), lineWidth: max(1, scale))
+            context.fill(head, with: .color(faceColor))
+            context.stroke(head, with: .color(faceEdgeColor), lineWidth: lineWidth)
 
-            let eyeCenterY = faceRect.midY - RobotGeometry.eyeCenterOffsetRatio * scale + pupilOffset.y * scale
-            let eyeSpacing = RobotGeometry.eyeSpacingRatio * scale
-            let eyeWidth = RobotGeometry.eyeWidthRatio * scale
-            let fullEyeHeight = RobotGeometry.eyeHeightRatio * scale
-            let eyeHeight = max(fullEyeHeight * eyeOpenness, RobotGeometry.minEyeHeightRatio * scale)
+            let eyeCenterY = faceRect.midY - OwlGeometry.eyeCenterOffsetRatio * scale + pupilOffset.y * scale
+            let eyeSpacing = OwlGeometry.eyeSpacingRatio * scale
+            let eyeWidth = OwlGeometry.eyeWidthRatio * scale
+            let fullEyeHeight = OwlGeometry.eyeHeightRatio * scale
+            let eyeHeight = max(fullEyeHeight * eyeOpenness, OwlGeometry.minEyeHeightRatio * scale)
             let eyeCornerRadius = eyeWidth / 2
 
             for xOffset in [-eyeSpacing, eyeSpacing] {
@@ -55,6 +49,11 @@ struct RobotHead: View {
                     with: .color(eyeColor)
                 )
             }
+
+            context.fill(
+                OwlGeometry.beakPath(midX: mid.x, eyeCenterY: eyeCenterY, scale: scale),
+                with: .color(faceEdgeColor)
+            )
         }
         .frame(width: size, height: size)
     }

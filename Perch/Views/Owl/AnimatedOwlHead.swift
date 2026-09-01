@@ -1,11 +1,11 @@
 import SwiftUI
 
-struct AnimatedRobotHead: View {
+struct AnimatedOwlHead: View {
     var size: CGFloat = 18
-    var event: AppState.BlinkEvent = .idle
+    var event: AppState.PerchEvent = .idle
 
     @State private var pupilOffset: CGPoint = .zero
-    @State private var eyeState: RobotHead.EyeState = .open
+    @State private var eyeState: OwlHead.EyeState = .open
     @State private var tilt: Double = 0
     @State private var bobOffset: CGFloat = 0
     @State private var squish: CGFloat = 1.0
@@ -18,7 +18,7 @@ struct AnimatedRobotHead: View {
     private static let recentreChance = 0.45
 
     var body: some View {
-        RobotHead(size: size, eyeState: eyeState, pupilOffset: pupilOffset)
+        OwlHead(size: size, eyeState: eyeState, pupilOffset: pupilOffset)
             .scaleEffect(x: 1.0, y: squish)
             .rotationEffect(.degrees(tilt))
             .offset(y: bobOffset)
@@ -37,13 +37,12 @@ struct AnimatedRobotHead: View {
             }
     }
 
-    private func handleEvent(_ event: AppState.BlinkEvent) {
+    private func handleEvent(_ event: AppState.PerchEvent) {
         switch event {
         // Idle used to park the eyes at .halfClosed, and the blink timer skips
-        // any eyeState that is already closing — so the mascot of an app called
-        // Blink stopped blinking for exactly as long as nothing was happening,
-        // sitting on two flat dashes. Idle is open; the glance and blink loops
-        // are what carry it.
+        // any eyeState that is already closing — so the owl stopped blinking
+        // for exactly as long as nothing was happening, sitting on two flat
+        // dashes. Idle is open; the glance and blink loops are what carry it.
         case .idle:
             withAnimation(.easeInOut(duration: 0.4)) {
                 eyeState = .open
@@ -115,7 +114,7 @@ struct AnimatedRobotHead: View {
     private func scheduleBlinkTimer() {
         blinkTimer?.invalidate()
         blinkTimer = Timer.scheduledTimer(
-            withTimeInterval: Double.random(in: RobotBlink.interval),
+            withTimeInterval: Double.random(in: OwlBlink.interval),
             repeats: false
         ) { _ in
             if eyeState != .closed && eyeState != .halfClosed {
@@ -151,13 +150,13 @@ struct AnimatedRobotHead: View {
     }
 
     private func quickBlink() {
-        withAnimation(.easeIn(duration: RobotBlink.closeDuration)) {
+        withAnimation(.easeIn(duration: OwlBlink.closeDuration)) {
             eyeState = .closed
         }
         DispatchQueue.main.asyncAfter(
-            deadline: .now() + RobotBlink.closeDuration + RobotBlink.holdDuration
+            deadline: .now() + OwlBlink.closeDuration + OwlBlink.holdDuration
         ) {
-            withAnimation(.easeOut(duration: RobotBlink.openDuration)) {
+            withAnimation(.easeOut(duration: OwlBlink.openDuration)) {
                 eyeState = .open
             }
         }

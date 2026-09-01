@@ -10,7 +10,7 @@ struct AboutPage: View {
 
             // The mascot is the whole personality of this app and it was living
             // at 22pt in a header corner. This is the one page with room for it.
-            AnimatedRobotHead(size: 58, event: .idle)
+            AnimatedOwlHead(size: 58, event: .idle)
                 .frame(width: 86, height: 86)
                 // The head's fill is tuned for 20pt in a menu bar; over a dark
                 // panel at 3x that it needs something lit to sit on.
@@ -22,7 +22,7 @@ struct AboutPage: View {
                 }
                 .padding(.top, 24)
 
-            Text("Blink")
+            Text("Perch")
                 .font(.system(size: 27, weight: .bold))
                 .tracking(0.3)
                 .foregroundStyle(Color.ink)
@@ -35,7 +35,7 @@ struct AboutPage: View {
                 .padding(.top, 4)
                 .padding(.horizontal, 28)
 
-            Text(Blink.version)
+            Text(Perch.version)
                 .font(.system(size: 9.5, weight: .medium, design: .monospaced))
                 .foregroundStyle(Color.inkFaint)
                 .padding(.horizontal, 7)
@@ -46,7 +46,7 @@ struct AboutPage: View {
 
             PanelGroup(label: "MADE BY", icon: "hammer") {
                 PanelRow("mo.software", glyph: "arrow.up.right") {
-                    NSWorkspace.shared.open(Blink.authorURL)
+                    NSWorkspace.shared.open(Perch.authorURL)
                 }
             }
             .padding(.horizontal, 12)

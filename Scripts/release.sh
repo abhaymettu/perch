@@ -1,14 +1,14 @@
 #!/bin/bash
 #
-# release.sh — Blink's ship pipeline:
+# release.sh — Perch's ship pipeline:
 #   Release build (Developer ID, hardened runtime) -> styled DMG ->
 #   notarize + staple.
 #
 # Notary credentials are Apple-ID/team-level, not per-app, so this reuses
 # the "Era" keychain profile by default. To use a separate one:
-#   xcrun notarytool store-credentials "Blink" \
+#   xcrun notarytool store-credentials "Perch" \
 #     --apple-id <apple-id> --team-id SARBM2PYZ7
-#   NOTARY_PROFILE=Blink ./Scripts/release.sh
+#   NOTARY_PROFILE=Perch ./Scripts/release.sh
 #
 # Usage: ./Scripts/release.sh
 #
@@ -18,9 +18,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(dirname "$SCRIPT_DIR")"
 BUILD="$ROOT/build"
-ARCHIVE="$BUILD/Blink.xcarchive"
-APP="$BUILD/Blink.app"
-DMG="$BUILD/Blink.dmg"
+ARCHIVE="$BUILD/Perch.xcarchive"
+APP="$BUILD/Perch.app"
+DMG="$BUILD/Perch.dmg"
 PROFILE="${NOTARY_PROFILE:-Era}"
 
 cd "$ROOT"
@@ -28,13 +28,13 @@ mkdir -p "$BUILD"
 rm -rf "$ARCHIVE" "$APP" "$DMG"
 
 echo "==> Archiving (Release)"
-xcodebuild -project Blink.xcodeproj -scheme Blink -configuration Release \
+xcodebuild -project Perch.xcodeproj -scheme Perch -configuration Release \
     -archivePath "$ARCHIVE" archive | grep -E "error|warning: code sign|ARCHIVE" || true
-[ -d "$ARCHIVE/Products/Applications/Blink.app" ] || { echo "archive failed"; exit 1; }
-cp -R "$ARCHIVE/Products/Applications/Blink.app" "$APP"
+[ -d "$ARCHIVE/Products/Applications/Perch.app" ] || { echo "archive failed"; exit 1; }
+cp -R "$ARCHIVE/Products/Applications/Perch.app" "$APP"
 
 echo "==> Verifying signature"
-# The project signs with Developer ID and hardened runtime; Blink has no
+# The project signs with Developer ID and hardened runtime; Perch has no
 # nested frameworks, so there is nothing to re-sign — only to check.
 codesign --verify --deep --strict "$APP"
 SIGINFO=$(codesign -dvv "$APP" 2>&1)
@@ -63,5 +63,5 @@ BUILDNUM=$(defaults read "$APP/Contents/Info" CFBundleVersion)
 
 echo ""
 echo "Shipped artifacts in build/:"
-echo "  Blink.dmg — notarized + stapled, version $VERSION ($BUILDNUM)"
+echo "  Perch.dmg — notarized + stapled, version $VERSION ($BUILDNUM)"
 echo "  Attach it to the GitHub release for tag v$VERSION."
