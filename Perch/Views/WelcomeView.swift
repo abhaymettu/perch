@@ -121,9 +121,9 @@ private struct StepLayout<Icon: View>: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Same plinth on both screens, so the slot reads as one slot.
+            // Same fixed slot on both screens, so swapping icons moves nothing.
             icon
-                .owlPlinth()
+                .frame(width: 86, height: 86)
                 .padding(.top, 18)
 
             Text(title)
