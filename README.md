@@ -78,6 +78,17 @@ line or a tapered chin read as a cat at menu bar size. The owl comes from the fe
 glaring eyes and a beak inside a squat frame, which is also all that survives being flattened to
 one colour.
 
+## The iOS widget
+
+`Widget/Perch Usage.js` is a [Scriptable](https://scriptable.app) widget showing the same three
+usage numbers, watched over by the same owl: it dozes when the account is quiet, blinks and
+glances around when things are normal, and goes wide-eyed and red as a limit closes in.
+
+If Scriptable's iCloud folder exists on the Mac, Perch drops `perch-usage.json` into it on
+every poll: percentages and reset times only, never the token. Copy the script into
+Scriptable's iCloud Documents folder (it syncs to the phone on its own) and add a medium
+Scriptable widget pointing at it.
+
 ## Install
 
 No release build. Clone it and build with Xcode 15 or later:

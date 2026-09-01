@@ -101,6 +101,7 @@ final class LimitsMonitor {
         do {
             let parsed = try Self.parse(await fetch())
             let settingsModel = Self.configuredModel()
+            Self.publish(parsed)
             await MainActor.run {
                 self.limits = parsed
                 self.model = settingsModel
@@ -206,6 +207,36 @@ final class LimitsMonitor {
                 resetsAt: (entry["resets_at"] as? String).flatMap(ISO8601DateFormatter.usage.date(from:)),
                 modelName: model?["display_name"] as? String
             )
+        }
+    }
+
+    // MARK: - Widget feed
+
+    /// Mirrors each successful fetch into Scriptable's iCloud folder, where the
+    /// companion iOS widget (`Widget/Perch Usage.js`) reads it. Percentages and
+    /// reset times only — never the token. A no-op unless Scriptable's folder
+    /// already exists.
+    private static let scriptableDirectory = FileManager.default.homeDirectoryForCurrentUser
+        .appending(path: "Library/Mobile Documents/iCloud~dk~simonbs~Scriptable/Documents")
+
+    private static func publish(_ limits: [UsageLimit]) {
+        guard FileManager.default.fileExists(atPath: scriptableDirectory.path) else { return }
+
+        let payload: [String: Any] = [
+            "fetchedAt": Date().timeIntervalSince1970,
+            "limits": limits.map { limit -> [String: Any] in
+                [
+                    "kind": limit.kind,
+                    "percent": limit.percent,
+                    "severity": limit.severity,
+                    "resetsAt": limit.resetsAt.map(\.timeIntervalSince1970) ?? NSNull() as Any,
+                    "model": limit.modelName ?? NSNull() as Any
+                ]
+            }
+        ]
+
+        if let data = try? JSONSerialization.data(withJSONObject: payload) {
+            try? data.write(to: scriptableDirectory.appending(path: "perch-usage.json"), options: .atomic)
         }
     }
 
