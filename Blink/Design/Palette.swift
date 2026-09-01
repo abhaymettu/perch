@@ -12,10 +12,6 @@ extension Color {
     // MARK: - Ground
 
     static let panelGround = Color(hex: 0x131317)
-    /// Section cards sit one step above the ground so a group reads as a group
-    /// without a divider between every row.
-    static let surface = Color(hex: 0x1E1E25)
-    static let hairline = Color.white.opacity(0.06)
 
     // MARK: - Ink
 
