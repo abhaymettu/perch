@@ -32,19 +32,15 @@ struct MenuBarView: View {
         withAnimation(panelPageChange) { page = destination }
     }
 
-    private func back() {
-        go(to: .main)
-    }
-
     var body: some View {
         ZStack(alignment: .topLeading) {
             switch page {
             case .main:
                 mainPage.panelPage(offset: -24)
             case .settings:
-                SettingsPage { back() }.panelPage(offset: 24)
+                SettingsPage { go(to: .main) }.panelPage(offset: 24)
             case .about:
-                AboutPage { back() }.panelPage(offset: 24)
+                AboutPage { go(to: .main) }.panelPage(offset: 24)
             }
         }
         .frame(width: Self.panelWidth)
@@ -233,13 +229,7 @@ private extension MenuBarView {
                                 ))
                         }
                     }
-                    // A card behind the rows is what makes a section read as one
-                    // group; five stacked dividers were doing that job badly.
-                    .padding(.vertical, 3)
-                    .background(
-                        RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .fill(Color.white.opacity(0.028))
-                    )
+                    .panelCard()
                 }
             }
         }

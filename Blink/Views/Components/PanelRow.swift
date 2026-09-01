@@ -23,12 +23,21 @@ struct PanelGroup<Content: View>: View {
             .padding(.horizontal, HoverRowStyle.horizontalPadding)
 
             VStack(spacing: 0) { content }
-                .padding(.vertical, 3)
-                .background(
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .fill(Color.white.opacity(0.028))
-                )
+                .panelCard()
         }
+    }
+}
+
+extension View {
+    /// The card behind a group of rows — what makes a section read as one group
+    /// rather than five stacked dividers. Shared so a `PanelGroup` on the
+    /// Settings page and a section on the main panel cannot drift apart.
+    func panelCard() -> some View {
+        padding(.vertical, 3)
+            .background(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(Color.white.opacity(0.028))
+            )
     }
 }
 
