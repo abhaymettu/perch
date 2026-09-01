@@ -86,8 +86,8 @@ final class LimitsMonitor {
     deinit { timer?.invalidate() }
 
     #if DEBUG
-    /// Seeded and inert, for the preview harness. Real data on this machine is
-    /// all `normal`, so warning and critical would otherwise ship unrendered.
+    /// Seeded and inert, for the preview harness. Real data is `normal` almost
+    /// all the time, so warning and critical would otherwise ship unrendered.
     init(frozen limits: [UsageLimit], model: String? = "opus-5", error: String? = nil) {
         self.limits = limits
         self.model = model

@@ -26,11 +26,31 @@ struct LaunchAgent: Identifiable, Hashable {
         if isRunning { return "running" }
         return schedule ?? "loaded"
     }
+
+    /// Agent labels are reverse-DNS, and the domain half is the same on every
+    /// row — it costs width and tells you nothing. Drop it and keep the rest,
+    /// so `com.example.app.helper` still reads as "app.helper".
+    var shortLabel: String {
+        let parts = label.split(separator: ".")
+        guard parts.count > 2 else { return label }
+        return parts.dropFirst(2).joined(separator: ".")
+    }
+
+    #if DEBUG
+    static func selfCheck() {
+        let short = { (label: String) in
+            LaunchAgent(label: label, pid: nil, lastExitStatus: 0, schedule: nil, plistPath: "").shortLabel
+        }
+        assert(short("com.example.backup") == "backup", "got \(short("com.example.backup"))")
+        assert(short("com.example.app.helper") == "app.helper", "sub-component was dropped")
+        assert(short("standalone") == "standalone", "a label with no domain must survive intact")
+    }
+    #endif
 }
 
-/// Read-only by design. Abhay's agents include the ones that keep his remote
-/// control and brain-babysitter alive; a misfired stop is unrecoverable from
-/// a menubar panel, so this section never offers one.
+/// Read-only by design. These are the agents that keep long-running background
+/// work alive; a misfired stop is unrecoverable from a menubar panel, so this
+/// section never offers one.
 enum LaunchAgentScanner {
 
     private static let directory = ("~/Library/LaunchAgents" as NSString).expandingTildeInPath

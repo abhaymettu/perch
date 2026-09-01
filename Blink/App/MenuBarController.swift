@@ -20,6 +20,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         #if DEBUG
         ClaudeScanner.selfCheck()
         LimitsMonitor.selfCheck()
+        LaunchAgent.selfCheck()
         FailureBox.selfCheck()
         Task { await Shell.selfCheck() }
 
