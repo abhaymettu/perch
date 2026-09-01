@@ -52,7 +52,7 @@ private struct MenuBarOwl: View {
                     width: eyeWidth,
                     height: eyeHeight
                 )
-                punch.addPath(Path(roundedRect: eyeRect, cornerRadius: eyeWidth / 2))
+                punch.addPath(OwlGeometry.eyePath(in: eyeRect, innerIsRight: xOffset < 0))
             }
 
             // The features are cut out of the disc by an inverse clip rather than
