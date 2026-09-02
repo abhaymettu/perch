@@ -35,17 +35,23 @@ struct UsageLimit: Identifiable, Equatable {
         severity == "normal" ? .ink : color
     }
 
-    /// One token — "2h" — for the strip column and for the menu bar, both of
-    /// which have room for exactly that beside the percentage.
+    /// Two units at most — "now", "14m", "2h 14m", "3d 5h" — for the strip
+    /// column and for the menu bar. A zero small unit is dropped, so a reset
+    /// exactly two hours out reads "2h", not "2h 0m".
     func countdown() -> String {
         guard let resetsAt else { return "" }
 
-        let minutes = Int(resetsAt.timeIntervalSinceNow) / 60
+        // Rounded, because the interval is read a hair after it is computed and
+        // truncation would turn 2h1m into 2h0m.
+        let minutes = Int(resetsAt.timeIntervalSinceNow.rounded()) / 60
+        func pair(_ big: Int, _ bigUnit: String, _ small: Int, _ smallUnit: String) -> String {
+            small == 0 ? "\(big)\(bigUnit)" : "\(big)\(bigUnit) \(small)\(smallUnit)"
+        }
         switch minutes {
         case ..<1:    return "now"
         case ..<60:   return "\(minutes)m"
-        case ..<1440: return "\(minutes / 60)h"
-        default:      return "\(minutes / 1440)d"
+        case ..<1440: return pair(minutes / 60, "h", minutes % 60, "m")
+        default:      return pair(minutes / 1440, "d", minutes % 1440 / 60, "h")
         }
     }
 }
@@ -308,7 +314,18 @@ final class LimitsMonitor {
         let inTwoHours = Date().addingTimeInterval(2 * 3600 + 60)
         monitor.limits[1] = UsageLimit(kind: "weekly_all", percent: 91, severity: "critical", resetsAt: inTwoHours, modelName: nil)
         assert(monitor.lead?.kind == "weekly_all", "hot weekly did not take the lead")
-        assert(monitor.menuBarTitle == " 91% 2h", "got '\(monitor.menuBarTitle)'")
+        assert(monitor.menuBarTitle == " 91% 2h 1m", "got '\(monitor.menuBarTitle)'")
+
+        // Both units, and the zero one dropped.
+        let cases: [(TimeInterval, String)] = [
+            (30, "now"), (840, "14m"), (8040, "2h 14m"), (7200, "2h"),
+            (277_200, "3d 5h"), (259_200, "3d"),
+        ]
+        for (seconds, expected) in cases {
+            let limit = UsageLimit(kind: "session", percent: 1, severity: "normal",
+                                   resetsAt: Date().addingTimeInterval(seconds), modelName: nil)
+            assert(limit.countdown() == expected, "\(seconds)s gave '\(limit.countdown())', want '\(expected)'")
+        }
     }
     #endif
 }
