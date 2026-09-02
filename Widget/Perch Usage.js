@@ -38,13 +38,17 @@ function label(limit) {
   return "WEEK · " + (limit.model || "MODEL").toUpperCase();
 }
 
+// Two units at most: "now", "14m", "2h 14m", "3d 5h". A zero small unit is
+// dropped, so a reset exactly two hours out reads "2h", not "2h 0m".
 function countdown(limit) {
   if (!limit.resetsAt) return "";
   const minutes = Math.floor((limit.resetsAt * 1000 - Date.now()) / 60000);
+  const pair = (big, bigUnit, small, smallUnit) =>
+    small === 0 ? `${big}${bigUnit}` : `${big}${bigUnit} ${small}${smallUnit}`;
   if (minutes < 1) return "resets now";
   if (minutes < 60) return "resets " + minutes + "m";
-  if (minutes < 1440) return "resets " + Math.floor(minutes / 60) + "h";
-  return "resets " + Math.floor(minutes / 1440) + "d";
+  if (minutes < 1440) return "resets " + pair(Math.floor(minutes / 60), "h", minutes % 60, "m");
+  return "resets " + pair(Math.floor(minutes / 1440), "d", Math.floor((minutes % 1440) / 60), "h");
 }
 
 function tint(limit) {
