@@ -256,18 +256,11 @@ final class LimitsMonitor {
 
     // MARK: - Menu bar
 
-    /// The session window leads, since that is what you are spending against
-    /// right now. A longer window only takes over once it is close enough to
-    /// actually stop you.
+    /// The session window always leads, since that is what you are spending
+    /// against right now. A hot weekly window still shows, but as the trailing
+    /// "· W nn%" rather than by taking over the bar.
     var lead: UsageLimit? {
-        let session = limits.first { $0.kind == "session" }
-        let urgent = limits.filter { $0.id != session?.id && $0.percent >= 75 }
-
-        if let hottest = urgent.max(by: { $0.percent < $1.percent }),
-           hottest.percent > (session?.percent ?? -1) {
-            return hottest
-        }
-        return session ?? limits.max { $0.percent < $1.percent }
+        limits.first { $0.kind == "session" } ?? limits.max { $0.percent < $1.percent }
     }
 
     /// " 4% · W 44%", and the reset countdown too once the lead is hot enough
@@ -309,12 +302,15 @@ final class LimitsMonitor {
         assert(monitor.lead?.kind == "session", "session should lead below 75%")
         assert(monitor.menuBarTitle == " 4% · W 44%", "got '\(monitor.menuBarTitle)'")
 
-        // A weekly window past 75% and above the session takes the lead, and a
-        // lead that is no longer "normal" carries its countdown.
+        // The session keeps the lead even when another window is critical, and
+        // a lead that is no longer "normal" carries its countdown.
         let inTwoHours = Date().addingTimeInterval(2 * 3600 + 60)
         monitor.limits[1] = UsageLimit(kind: "weekly_all", percent: 91, severity: "critical", resetsAt: inTwoHours, modelName: nil)
-        assert(monitor.lead?.kind == "weekly_all", "hot weekly did not take the lead")
-        assert(monitor.menuBarTitle == " 91% 2h 1m", "got '\(monitor.menuBarTitle)'")
+        assert(monitor.lead?.kind == "session", "session lost the lead to a hot weekly")
+        assert(monitor.menuBarTitle == " 4% · W 91%", "got '\(monitor.menuBarTitle)'")
+
+        monitor.limits[0] = UsageLimit(kind: "session", percent: 96, severity: "critical", resetsAt: inTwoHours, modelName: nil)
+        assert(monitor.menuBarTitle == " 96% 2h 1m · W 91%", "got '\(monitor.menuBarTitle)'")
 
         // Both units, and the zero one dropped.
         let cases: [(TimeInterval, String)] = [
