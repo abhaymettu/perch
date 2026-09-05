@@ -48,6 +48,7 @@ struct MenuBarView: View {
         }
         .frame(width: Self.panelWidth)
         .frame(minHeight: Self.minHeight, alignment: .top)
+        .integralHeight()
         // Material alone takes the wallpaper's colour; the ground pins the
         // panel to something the wallpaper only tints.
         .background {
@@ -144,9 +145,25 @@ private extension MenuBarView {
         } else {
             VStack(spacing: 0) {
                 roost
+                bridgeLine
                 openSection
             }
             .transition(.opacity.combined(with: .scale(scale: 0.97)))
+        }
+    }
+
+    // MARK: - The bridge
+
+    /// The one line the roost cannot carry: the roost counts things, and the
+    /// bridge's health is not a count. Sits directly under it because it is
+    /// the same kind of glance — state, not a list you open.
+    @ViewBuilder
+    var bridgeLine: some View {
+        if let bridge = appState.bridge {
+            BridgeRowView(status: bridge)
+                .panelCard()
+                .padding(.horizontal, 12)
+                .padding(.bottom, 9)
         }
     }
 
@@ -347,4 +364,32 @@ struct RoostSection {
     let count: Int
     let isAlert: Bool
     let rows: () -> AnyView
+}
+
+// MARK: - Integral height
+
+/// Rounds the panel's ideal height up to a whole point.
+///
+/// AppKit only ever gives a window an integral height, so a SwiftUI ideal of
+/// 273.5 can never be satisfied: the hosting view asks for a size it will not
+/// be given, is invalidated, asks again, and an animated resize burns through
+/// AppKit's update-constraints budget for the window and throws. It stayed
+/// hidden while the closed panel measured under `minHeight` — the clamp made
+/// ideal and actual agree by accident.
+private struct IntegralHeight: Layout {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let size = subviews[0].sizeThatFits(proposal)
+        return CGSize(width: size.width, height: size.height.rounded(.up))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews[0].place(at: bounds.origin, anchor: .topLeading,
+                          proposal: ProposedViewSize(bounds.size))
+    }
+}
+
+extension View {
+    func integralHeight() -> some View {
+        IntegralHeight() { self }
+    }
 }
