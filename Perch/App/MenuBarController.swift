@@ -30,6 +30,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         LimitsMonitor.selfCheck()
         LaunchAgent.selfCheck()
         FailureBox.selfCheck()
+        BridgeStatus.selfCheck()
         Task { await Shell.selfCheck() }
 
         if PreviewHarness.isEnabled {
