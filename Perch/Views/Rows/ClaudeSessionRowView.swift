@@ -7,42 +7,61 @@ struct ClaudeSessionRowView: View {
     @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 0) {
-            ColorBar(color: session.isStale ? .alert : session.kind.color)
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 7) {
+                Text(session.name)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.ink)
+                    .lineLimit(1)
 
-            Text(session.name)
-                .font(.rowTitle)
-                .foregroundStyle(Color.ink)
+                Spacer(minLength: 2)
+
+                PerchStateLabel(
+                    word: session.isStale ? "stale" : "active",
+                    state: session.isStale ? .warning : .healthy
+                )
+
+                if isHovered {
+                    RowAction(symbol: "xmark", help: "Kill session", tint: .alert) {
+                        appState.killSession(session)
+                    }
+                    .transition(.opacity)
+                }
+            }
+            .frame(minHeight: 17)
+
+            HStack(spacing: 4) {
+                Text(
+                    session.isStale
+                        ? "no heartbeat for \(Age.short(session.displayAge))"
+                        : subtitle
+                )
                 .lineLimit(1)
 
-            Spacer(minLength: 8)
-
-            // The kind is context, not news: it steps aside for the action the
-            // moment the row is the one you are pointing at.
-            if isHovered {
-                // No restart: relaunching a session means restoring terminal
-                // and tmux context we cannot reconstruct.
-                RowAction(symbol: "xmark", help: "Kill session", tint: .alert) {
-                    appState.killSession(session)
+                if !session.isStale {
+                    Spacer(minLength: 0)
+                    Text(Age.short(session.displayAge))
+                        .contentTransition(.numericText())
                 }
-                .transition(.opacity)
-            } else {
-                Text(subtitle)
-                    .font(.rowMeta)
-                    .foregroundStyle(Color.inkFaint)
-                    .lineLimit(1)
-                    .transition(.opacity)
             }
-
-            Text(Age.short(session.displayAge))
-                .font(.rowNumber)
-                .foregroundStyle(session.isStale ? Color.alert : Color.inkMuted)
-                .monospacedDigit()
-                .frame(width: 30, alignment: .trailing)
-                .padding(.leading, 8)
+            .font(.system(size: 11))
+            .foregroundStyle(Color.inkMuted)
+            .monospacedDigit()
         }
         .hoverRow { isHovered = $0 }
         .onTapGesture { appState.revealSession(session) }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(session.name)
+        .accessibilityValue(
+            "\(session.isStale ? "stale, no heartbeat for" : "active, age") \(Age.short(session.displayAge)), \(subtitle)"
+        )
+        .accessibilityAction(named: Text("Reveal session")) {
+            appState.revealSession(session)
+        }
+        .accessibilityAction(named: Text("Kill session")) {
+            appState.killSession(session)
+        }
+        .help("\(subtitle) · Click to reveal session")
     }
 
     private var subtitle: String {
@@ -54,17 +73,14 @@ struct ClaudeSessionRowView: View {
     }
 }
 
-// MARK: - Age formatting
-
 enum Age {
-    /// "17h", "42m", "3d" — the panel is 320pt wide, so a duration gets one unit.
     static func short(_ interval: TimeInterval) -> String {
         let seconds = Int(max(interval, 0))
         switch seconds {
-        case ..<60:     return "\(seconds)s"
-        case ..<3600:   return "\(seconds / 60)m"
+        case ..<60: return "\(seconds)s"
+        case ..<3600: return "\(seconds / 60)m"
         case ..<86_400: return "\(seconds / 3600)h"
-        default:        return "\(seconds / 86_400)d"
+        default: return "\(seconds / 86_400)d"
         }
     }
 }
