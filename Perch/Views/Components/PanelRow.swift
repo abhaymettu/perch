@@ -1,25 +1,21 @@
 import SwiftUI
 
-/// A labelled card, the same shape the main panel's sections use. Settings was
-/// four unrelated kinds of thing — two preferences, a permission, a link —
-/// stacked in one undifferentiated hairline list.
 struct PanelGroup<Content: View>: View {
     let label: String
     let icon: String
     @ViewBuilder let content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 8.5, weight: .medium))
+                    .font(.system(size: 9, weight: .medium))
                     .frame(width: 11)
 
                 Text(label)
                     .font(.sectionLabel)
-                    .tracking(1.1)
             }
-            .foregroundStyle(Color.inkFaint)
+            .foregroundStyle(Color.inkMuted)
             .padding(.horizontal, HoverRowStyle.horizontalPadding)
 
             VStack(spacing: 0) { content }
@@ -29,27 +25,32 @@ struct PanelGroup<Content: View>: View {
 }
 
 extension View {
-    /// The card behind a group of rows — what makes a section read as one group
-    /// rather than five stacked dividers. Shared so a `PanelGroup` on the
-    /// Settings page and a section on the main panel cannot drift apart.
+    // A shared surface ties preferences and running processes to the same
+    // panel without making each row look like a separate floating control.
     func panelCard() -> some View {
         padding(.vertical, 3)
-            .background(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(Color.white.opacity(0.028))
-            )
+            .background(Color.panelSurface, in: RoundedRectangle(cornerRadius: 5))
+            .clipShape(RoundedRectangle(cornerRadius: 5))
+            .overlay {
+                RoundedRectangle(cornerRadius: 5)
+                    .strokeBorder(Color.panelRule, lineWidth: 1)
+                    .allowsHitTesting(false)
+            }
     }
 }
 
-/// One line inside a `PanelGroup`. `glyph` is the affordance: without it
-/// "Report an Issue" read as a dead label rather than something you click.
 struct PanelRow: View {
     private let title: String
     private let detail: String?
     private let glyph: String?
     private let action: () -> Void
 
-    init(_ title: String, detail: String? = nil, glyph: String? = "chevron.right", action: @escaping () -> Void) {
+    init(
+        _ title: String,
+        detail: String? = nil,
+        glyph: String? = "chevron.right",
+        action: @escaping () -> Void
+    ) {
         self.title = title
         self.detail = detail
         self.glyph = glyph
@@ -73,8 +74,8 @@ struct PanelRow: View {
 
                 if let glyph {
                     Image(systemName: glyph)
-                        .font(.system(size: 8.5, weight: .bold))
-                        .foregroundStyle(Color.inkFaint)
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(Color.inkMuted)
                 }
             }
             .hoverRow()
@@ -83,8 +84,6 @@ struct PanelRow: View {
     }
 }
 
-/// Not clickable, so no hover and no glyph — a coloured dot carries the state
-/// instead, the same way the header pill does.
 struct PanelStatusRow: View {
     let title: String
     let detail: String
@@ -97,10 +96,8 @@ struct PanelStatusRow: View {
 
             Spacer(minLength: 0)
 
-            Circle()
-                .fill(Color.ok)
-                .frame(width: 5, height: 5)
-
+            // The detail owns the verdict; a generic status row cannot safely
+            // infer success from the fact that it has text to display.
             Text(detail)
                 .font(.rowMeta)
                 .foregroundStyle(Color.inkMuted)
@@ -131,7 +128,7 @@ struct PanelToggleRow: View {
                 if let caption {
                     Text(caption)
                         .font(.rowMeta)
-                        .foregroundStyle(Color.inkFaint)
+                        .foregroundStyle(Color.inkMuted)
                 }
             }
 
@@ -140,34 +137,30 @@ struct PanelToggleRow: View {
             Toggle("", isOn: isOn)
                 .labelsHidden()
                 .toggleStyle(PerchToggleStyle())
+                .accessibilityLabel(title)
         }
         .padding(.horizontal, HoverRowStyle.horizontalPadding)
         .padding(.vertical, 6)
     }
 }
 
-/// Between rows inside a card, inset so it separates the text rather than
-/// cutting the card in half.
 struct PanelRowDivider: View {
     var body: some View {
         Rectangle()
-            .fill(Color.white.opacity(0.05))
-            .frame(height: 0.5)
-            .padding(.leading, HoverRowStyle.horizontalPadding)
+            .fill(Color.panelRule)
+            .frame(height: 1)
+            .padding(.horizontal, HoverRowStyle.horizontalPadding)
+            .accessibilityHidden(true)
     }
 }
 
 struct PanelDivider: View {
     var body: some View {
         Rectangle()
-            .fill(
-                LinearGradient(
-                    colors: [.clear, Color.white.opacity(0.13), .clear],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
-            .frame(height: 0.5)
+            .fill(Color.panelRule)
+            .frame(height: 1)
+            .padding(.horizontal, 12)
+            .accessibilityHidden(true)
     }
 }
 
@@ -178,18 +171,22 @@ struct PanelPageHeader: View {
     @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 9) {
+        HStack(spacing: 8) {
             Button(action: back) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(isHovered ? Color.ink : Color.inkMuted)
                     .frame(width: 24, height: 24)
-                    .background(Color.white.opacity(isHovered ? 0.10 : 0.06), in: Circle())
-                    .overlay(Circle().strokeBorder(Color.white.opacity(0.07)))
-                    .contentShape(Circle())
+                    .background(
+                        isHovered ? Color.panelHover : Color.panelGround,
+                        in: RoundedRectangle(cornerRadius: 4)
+                    )
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .onHover { isHovered = $0 }
+            .help("Back")
+            .accessibilityLabel("Back")
 
             Text(title)
                 .font(.panelTitle)
@@ -198,7 +195,6 @@ struct PanelPageHeader: View {
             Spacer()
         }
         .padding(.horizontal, 12)
-        .padding(.top, 11)
-        .padding(.bottom, 10)
+        .frame(height: 42)
     }
 }
