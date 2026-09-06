@@ -3,14 +3,20 @@ import SwiftUI
 struct BridgeRowView: View {
     let status: BridgeStatus
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var expanded: Bool
+
+    init(status: BridgeStatus) {
+        self.status = status
+        _expanded = State(initialValue: !status.isHealthy)
+    }
+
     private enum StageState {
         case ok, failed, unchecked
     }
 
-    private let names = ["POLLER", "GITHUB", "QUEUE", "VAULT"]
+    private let names = ["Poller", "GitHub", "Queue", "Vault"]
 
-    // A downstream result is not evidence of health when an earlier stage
-    // failed. Unchecked keeps that uncertainty visible instead of guessing.
     private var failureIndex: Int? {
         switch status.state {
         case .alive: nil
@@ -29,36 +35,22 @@ struct BridgeRowView: View {
 
     private func word(at index: Int) -> String {
         switch state(at: index) {
-        case .unchecked:
-            return "unchecked"
-        case .failed:
-            return ["down", "failing", "stuck", "broken"][index]
-        case .ok:
-            switch index {
-            case 0: return "alive"
-            case 2: return "\(status.queueDepth) queued"
-            default: return "ok"
-            }
+        case .unchecked: return "unchecked"
+        case .failed: return ["down", "failing", "stuck", "broken"][index]
+        case .ok: return "ok"
         }
     }
 
-    private func tint(at index: Int) -> Color {
+    private func mark(at index: Int) -> PerchMark {
         switch state(at: index) {
-        case .ok: .ok
-        case .failed: .alert
-        case .unchecked: .inkFaint
+        case .ok: return .healthy
+        case .failed: return .warning
+        case .unchecked: return .unchecked
         }
-    }
-
-    private var headline: String {
-        let prefix = "Bridge: "
-        return status.headline.hasPrefix(prefix)
-            ? String(status.headline.dropFirst(prefix.count))
-            : status.headline
     }
 
     private var cycle: String {
-        status.age.map { "last cycle \(Age.short($0)) ago" } ?? "no cycle recorded"
+        status.age.map { "Last cycle \(Age.short($0)) ago" } ?? "No cycle recorded"
     }
 
     private var checkHint: String? {
@@ -77,138 +69,132 @@ struct BridgeRowView: View {
     }
 
     var body: some View {
-        VStack(spacing: 2) {
-            HStack(spacing: 6) {
-                Text("Bridge")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.ink)
+        VStack(spacing: 0) {
+            Button {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
+                    expanded.toggle()
+                }
+                requestLayout()
+            } label: {
+                HStack(spacing: 9) {
+                    Image(systemName: "link")
+                        .font(.system(size: 15))
+                        .foregroundStyle(Color.inkMuted)
+                        .frame(width: 18, height: 18)
+                        .accessibilityHidden(true)
 
-                Spacer(minLength: 4)
+                    Text("Bridge")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color.ink)
 
-                Text(headline)
-                    .font(.system(size: 10, weight: status.isHealthy ? .regular : .semibold))
-                    .foregroundStyle(status.isHealthy ? Color.inkMuted : Color.alert)
-                    .lineLimit(1)
+                    Spacer(minLength: 2)
+
+                    PerchStateLabel(
+                        word: status.isHealthy ? "Up to date" : "Degraded",
+                        state: status.isHealthy ? .healthy : .warning
+                    )
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(Color.inkFaint)
+                        .rotationEffect(.degrees(expanded ? 90 : 0))
+                        .frame(width: 10, height: 10)
+                        .accessibilityHidden(true)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 11)
+                .contentShape(Rectangle())
             }
-            .frame(height: 14)
+            .buttonStyle(PerchPlainButtonStyle())
+            .accessibilityLabel("Bridge, \(status.isHealthy ? "Up to date" : "Degraded")")
+            .accessibilityValue("\(expanded ? "expanded" : "collapsed"), \(accessibilitySummary)")
+            .accessibilityHint(expanded ? "Collapse bridge details" : "Expand bridge details")
 
-            chain
-                .frame(height: 30)
+            if expanded {
+                detail
+                    .transition(.opacity)
+            }
+        }
+        .background(expanded ? Color.black.opacity(0.10) : Color.clear)
+        .perchGlassCard()
+        .help([Optional(status.help), checkHint].compactMap { $0 }.joined(separator: " · "))
+        .onChange(of: failureIndex) { _, newValue in
+            if newValue != nil { expanded = true }
+            requestLayout()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .perchPanelWillOpen)) { _ in
+            expanded = !status.isHealthy
+            requestLayout()
+        }
+    }
+
+    private var detail: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            PerchHairline()
+
+            VStack(spacing: 0) {
+                ForEach(0..<4, id: \.self) { index in
+                    HStack(spacing: 7) {
+                        PerchStatusMark(state: mark(at: index))
+                            .foregroundStyle(
+                                state(at: index) == .failed ? Color.alert : Color.inkMuted
+                            )
+
+                        Text(names[index])
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color.ink)
+
+                        Spacer(minLength: 4)
+
+                        Text(word(at: index))
+                            .font(.system(size: 11))
+                            .foregroundStyle(
+                                state(at: index) == .failed ? Color.alert : Color.inkMuted
+                            )
+                    }
+                    .frame(minHeight: 25)
+                    .accessibilityElement(children: .combine)
+                }
+            }
+            .padding(.vertical, 5)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Bridge pipeline in order")
+
+            PerchHairline()
 
             HStack(spacing: 4) {
-                Text(cycle)
-                    .foregroundStyle(Color.inkMuted)
-                    .layoutPriority(1)
-
+                Text("\(status.queueDepth) queued")
+                    .contentTransition(.numericText())
                 Spacer(minLength: 0)
-
-                if let checkHint {
-                    Text(checkHint)
-                        .foregroundStyle(Color.ink)
-                }
+                Text(cycle)
+                    .contentTransition(.numericText())
             }
-            .font(.system(size: 8.5))
+            .font(.system(size: 11))
+            .foregroundStyle(Color.inkMuted)
             .monospacedDigit()
-            .lineLimit(1)
-            .frame(height: 10)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 3)
-        .frame(maxWidth: .infinity)
-        .frame(height: 64)
-        .background(Color.panelSurface, in: RoundedRectangle(cornerRadius: 5))
-        .overlay {
-            RoundedRectangle(cornerRadius: 5)
-                .strokeBorder(Color.panelRule, lineWidth: 1)
-        }
-        .help([status.help, checkHint].compactMap { $0 }.joined(separator: " · "))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(status.headline)
-        .accessibilityValue(accessibilitySummary)
-    }
+            .padding(.top, 8)
 
-    private var chain: some View {
-        VStack(spacing: 1) {
-            HStack(spacing: 0) {
-                ForEach(0..<4) { index in
-                    node(at: index)
-                        .frame(maxWidth: .infinity)
-                }
-            }
-            .frame(height: 8)
-            .background {
-                GeometryReader { proxy in
-                    Path { path in
-                        let step = proxy.size.width / 4
-                        for index in 0..<3 {
-                            let start = step * (CGFloat(index) + 0.5) + 6
-                            let end = step * (CGFloat(index) + 1.5) - 6
-                            let middle = (start + end) / 2
-                            path.move(to: CGPoint(x: start, y: 4))
-                            path.addLine(to: CGPoint(x: end, y: 4))
-                            path.move(to: CGPoint(x: middle - 2, y: 2))
-                            path.addLine(to: CGPoint(x: middle, y: 4))
-                            path.addLine(to: CGPoint(x: middle - 2, y: 6))
-                        }
-                    }
-                    .stroke(Color.panelRule, lineWidth: 1)
-                }
-            }
-
-            HStack(spacing: 0) {
-                ForEach(0..<4) { index in
-                    Text(names[index])
-                        .font(.system(size: 8.5, weight: .medium))
-                        .foregroundStyle(Color.inkMuted)
-                        .frame(maxWidth: .infinity)
-                }
-            }
-            .frame(height: 10)
-
-            HStack(spacing: 0) {
-                ForEach(0..<4) { index in
-                    Text(word(at: index))
-                        .font(.system(size: 9, weight: state(at: index) == .failed ? .bold : .regular))
-                        .foregroundStyle(state(at: index) == .failed ? Color.alert : Color.ink)
-                        .monospacedDigit()
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
-                        .frame(maxWidth: .infinity)
-                }
-            }
-            .frame(height: 10)
-        }
-    }
-
-    private func node(at index: Int) -> some View {
-        ZStack {
-            switch state(at: index) {
-            case .ok:
-                Circle()
-                    .strokeBorder(tint(at: index), lineWidth: 2)
-            case .failed:
-                Circle()
-                    .fill(tint(at: index))
-
-                // A cut-out exclamation remains distinct from both ring styles
-                // when the card is viewed without colour.
-                Path { path in
-                    path.move(to: CGPoint(x: 4, y: 2))
-                    path.addLine(to: CGPoint(x: 4, y: 4))
-                    path.move(to: CGPoint(x: 4, y: 5.5))
-                    path.addLine(to: CGPoint(x: 4, y: 6))
-                }
-                .stroke(Color.panelSurface, style: StrokeStyle(lineWidth: 1, lineCap: .round))
-            case .unchecked:
-                Circle()
-                    .strokeBorder(tint(at: index), lineWidth: 0.5)
+            if let checkHint {
+                Text(checkHint)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 7)
             }
         }
-        .frame(width: 8, height: 8)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 11)
     }
 
     private var accessibilitySummary: String {
-        let stages = (0..<4).map { "\(names[$0].capitalized) \(word(at: $0))" }
-        return (stages + [cycle] + [checkHint].compactMap { $0 }).joined(separator: ", ")
+        let stages = (0..<4).map { "\(names[$0]) \(word(at: $0))" }
+        return (
+            stages + ["\(status.queueDepth) queued", cycle] +
+            [checkHint].compactMap { $0 }
+        ).joined(separator: ", ")
+    }
+
+    private func requestLayout() {
+        NotificationCenter.default.post(name: .perchPanelLayoutChanged, object: nil)
     }
 }
