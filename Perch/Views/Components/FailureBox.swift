@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct FailureBox: View {
@@ -9,12 +10,12 @@ struct FailureBox: View {
     @State private var isHoveringCopy = false
     @State private var textHeight: CGFloat = 0
 
-    private static let radius: CGFloat = 10
+    private static let radius: CGFloat = 4
     private static let inset: CGFloat = 6
     private static let lineLimit = 3
 
     private static let lineHeight: CGFloat = {
-        let font = NSFont.monospacedSystemFont(ofSize: 10, weight: .regular)
+        let font = NSFont.systemFont(ofSize: 10.5, weight: .regular)
         return ceil(font.ascender - font.descender + font.leading)
     }()
 
@@ -23,10 +24,18 @@ struct FailureBox: View {
     }
 
     var body: some View {
-        HStack(alignment: isSingleLine ? .center : .top, spacing: 8) {
+        HStack(alignment: isSingleLine ? .center : .top, spacing: 6) {
+            // The mark makes an error distinct from an ordinary inset note
+            // without relying on a red background.
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(Color.alert)
+                .frame(width: 12, height: 18)
+                .accessibilityLabel("Error")
+
             Text(headline)
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(Color.inkMuted)
+                .font(.system(size: 10.5))
+                .foregroundStyle(Color.ink)
                 .lineLimit(Self.lineLimit)
                 .truncationMode(.tail)
                 .fixedSize(horizontal: false, vertical: true)
@@ -42,15 +51,13 @@ struct FailureBox: View {
         }
         .onPreferenceChange(TextHeightKey.self) { textHeight = $0 }
         .padding(Self.inset)
-        // A neutral grey box made a crash look like a note. It is the one thing
-        // in the panel you are meant to read, so it carries the alert tint.
         .background {
-            RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
-                .fill(Color.alert.opacity(0.09))
-                .overlay(
-                    RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
-                        .strokeBorder(Color.alert.opacity(0.22))
-                )
+            RoundedRectangle(cornerRadius: Self.radius)
+                .fill(Color.panelGround)
+                .overlay {
+                    RoundedRectangle(cornerRadius: Self.radius)
+                        .strokeBorder(Color.panelRule, lineWidth: 1)
+                }
         }
     }
 
@@ -67,8 +74,10 @@ struct FailureBox: View {
                 .foregroundStyle(glyphColor)
                 .frame(width: 18, height: 18)
                 .background {
-                    RoundedRectangle(cornerRadius: Self.radius - Self.inset, style: .continuous)
-                        .fill(Color.white.opacity(isHoveringCopy ? 0.10 : 0))
+                    if isHoveringCopy {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color.panelHover)
+                    }
                 }
                 .contentShape(Rectangle())
         }
@@ -76,6 +85,7 @@ struct FailureBox: View {
         .onHover { isHoveringCopy = $0 }
         .animation(.easeOut(duration: 0.12), value: isHoveringCopy)
         .help(copied ? "Copied" : "Copy full error")
+        .accessibilityLabel(copied ? "Copied" : "Copy full error")
     }
 
     private var glyphColor: Color {
@@ -85,11 +95,11 @@ struct FailureBox: View {
 
     private var headline: String { Self.headline(message) }
 
-    /// The three lines you actually read, without the trace under them.
     static func headline(_ message: String) -> String {
         let lines = message.components(separatedBy: "\n")
-        // Trimmed first: a stack frame is indented, so an untrimmed hasPrefix
-        // never matches and the whole trace lands in the box.
+
+        // Stack frames are indented, so trim before finding where the readable
+        // explanation ends. The clipboard still receives the complete message.
         let body = lines.prefix {
             let line = $0.trimmingCharacters(in: .whitespaces)
             return !line.hasPrefix("at ") && !line.hasPrefix("File \"")
