@@ -4,100 +4,152 @@ import SwiftUI
 struct UsageStrip: View {
     let monitor: LimitsMonitor
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovered = false
 
     var body: some View {
         Button {
-            NSWorkspace.shared.open(URL(string: "https://claude.ai/settings/usage")!)
+            guard let url = URL(string: "https://claude.ai/settings/usage") else { return }
+            NSWorkspace.shared.open(url)
         } label: {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 0) {
                 caption
 
-                HStack(alignment: .top, spacing: 12) {
+                HStack(alignment: .top, spacing: 13) {
                     ForEach(monitor.limits) { limit in
                         column(for: limit)
                     }
                 }
+                .padding(.top, 12)
+
+                if monitor.isStale || monitor.error != nil {
+                    PerchHairline()
+                        .padding(.top, 10)
+                        .padding(.bottom, 8)
+                    freshness
+                }
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.top, 12)
+            .padding(.bottom, 11)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isHovered ? Color.panelHover : Color.panelGround)
-            .contentShape(Rectangle())
+            .background(.white.opacity(isHovered ? 0.045 : 0))
+            .perchGlassCard(radius: 11)
+            .contentShape(RoundedRectangle(cornerRadius: 11))
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
-        .animation(.easeOut(duration: 0.13), value: isHovered)
-        .help("Open usage settings")
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.13), value: isHovered)
+        .help(
+            [Optional("Open usage settings"), monitor.error]
+                .compactMap { $0 }
+                .joined(separator: " · ")
+        )
+        .accessibilityLabel(
+            "\(monitor.isStale ? "Cached usage" : "Usage")\(monitor.model.map { " for \($0)" } ?? "")"
+        )
+        .accessibilityValue(accessibilitySummary)
+        .accessibilityHint("Open usage settings")
     }
 
     private var caption: some View {
         HStack(spacing: 6) {
             Text("Usage")
-                .font(.sectionLabel)
-                .foregroundStyle(Color.inkMuted)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.ink)
 
             Spacer(minLength: 4)
 
-            // Cached values remain useful, but must not masquerade as a fresh
-            // reading when a fetch fails.
-            if let error = monitor.error {
-                HStack(spacing: 3) {
-                    Image(systemName: monitor.isStale ? "clock" : "exclamationmark.triangle")
-                    Text(monitor.isStale ? "cached" : error)
-                }
-                .font(.statFoot)
-                .foregroundStyle(monitor.isStale ? Color.inkMuted : Color.alert)
-                .lineLimit(1)
-                .help(error)
-            } else if monitor.isStale {
-                Text("cached")
-                    .font(.statFoot)
-                    .foregroundStyle(Color.inkMuted)
-            }
-
             if let model = monitor.model {
                 Text(model)
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.system(size: 11))
                     .foregroundStyle(Color.inkMuted)
                     .lineLimit(1)
             }
 
             Image(systemName: "arrow.up.right")
-                .font(.system(size: 8, weight: .medium))
-                .foregroundStyle(Color.inkFaint)
+                .font(.system(size: 10))
+                .foregroundStyle(Color.inkMuted)
                 .accessibilityHidden(true)
         }
-        .frame(height: 12)
+        .frame(height: 17)
+    }
+
+    @ViewBuilder
+    private var freshness: some View {
+        if monitor.isStale {
+            HStack(spacing: 5) {
+                Image(systemName: "clock")
+                    .font(.system(size: 11))
+                    .accessibilityHidden(true)
+                // The supplied monitor interface exposes staleness, not a
+                // successful-fetch timestamp. Never invent an update age.
+                Text("Cached")
+                    .font(.system(size: 11))
+            }
+            .foregroundStyle(Color.inkMuted)
+            .help(monitor.error ?? "Showing cached usage")
+        } else if let error = monitor.error {
+            HStack(alignment: .top, spacing: 5) {
+                PerchStatusMark(state: .warning)
+                Text("Unavailable · \(error)")
+                    .font(.system(size: 11))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .foregroundStyle(Color.alert)
+            .help(error)
+        }
     }
 
     private func column(for limit: UsageLimit) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 0) {
             Text(limit.shortTitle)
-                .font(.statLabel)
+                .font(.system(size: 11))
                 .foregroundStyle(Color.inkMuted)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
-                .frame(height: 11)
+                .frame(height: 15)
 
-            Text("\(limit.percent)%")
-                .font(.statValue)
-                .foregroundStyle(Color.ink)
-                .contentTransition(.numericText())
-                .frame(height: 22)
+            HStack(alignment: .firstTextBaseline, spacing: 1) {
+                Text("\(limit.percent)")
+                    .font(.system(size: 23, weight: .medium))
+                    .tracking(-0.55)
+                    .foregroundStyle(Color.ink)
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+
+                Text("%")
+                    .font(.system(size: 15))
+                    .foregroundStyle(Color.inkMuted)
+            }
+            .frame(height: 29, alignment: .leading)
 
             meter(for: limit)
+                .padding(.top, 6)
+                .padding(.bottom, 7)
 
-            Text(limit.countdown())
-                .font(.statFoot)
+            Text(resetText(for: limit))
+                .font(.system(size: 10))
                 .foregroundStyle(Color.inkMuted)
                 .monospacedDigit()
                 .lineLimit(1)
-                .frame(height: 11)
+                .minimumScaleFactor(0.75)
+                .frame(height: 14)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .animation(.snappy(duration: 0.35), value: limit.percent)
-        .accessibilityElement(children: .combine)
+        .animation(reduceMotion ? nil : .snappy(duration: 0.35), value: limit.percent)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(limit.shortTitle)
+        .accessibilityValue("\(limit.percent) percent, \(resetText(for: limit))")
+    }
+
+    private func resetText(for limit: UsageLimit) -> String {
+        let countdown = limit.countdown()
+        guard !countdown.isEmpty else { return countdown }
+        if countdown.lowercased().hasPrefix("reset") {
+            return countdown
+        }
+        return "Resets in \(countdown)"
     }
 
     private func meter(for limit: UsageLimit) -> some View {
@@ -105,22 +157,28 @@ struct UsageStrip: View {
             let fraction = min(1, max(0, Double(limit.percent) / 100))
 
             ZStack(alignment: .leading) {
-                Rectangle()
-                    .fill(Color.panelRule)
-
-                // Length and the printed percentage carry usage; the accent
-                // does not introduce a separate, hue-only warning threshold.
-                Rectangle()
-                    .fill(Color.terracotta)
+                Capsule()
+                    .fill(.white.opacity(0.13))
+                Capsule()
+                    .fill(Color(hex: 0xD3D7DF))
                     .frame(width: proxy.size.width * CGFloat(fraction))
-
-                Rectangle()
-                    .fill(Color.inkMuted)
-                    .frame(width: 1)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .overlay(alignment: .top) {
+                        Color.white.opacity(0.4)
+                            .frame(height: 1)
+                    }
+                    .clipShape(Capsule())
             }
         }
         .frame(height: 4)
         .accessibilityHidden(true)
+    }
+
+    private var accessibilitySummary: String {
+        var parts = monitor.limits.map {
+            "\($0.shortTitle) \($0.percent) percent, \(resetText(for: $0))"
+        }
+        if monitor.isStale { parts.append("Cached") }
+        if let error = monitor.error { parts.append(error) }
+        return parts.joined(separator: ", ")
     }
 }
