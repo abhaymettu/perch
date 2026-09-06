@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 extension Color {
@@ -9,44 +10,49 @@ extension Color {
         )
     }
 
-    // MARK: - Ground
+    // Opaque surfaces keep the instrument legible regardless of the wallpaper.
+    static let panelGround = adaptive("ground", light: 0xF5F1E9, dark: 0x29241F)
+    static let panelSurface = adaptive("surface", light: 0xFCF9F3, dark: 0x322C26)
+    static let panelHover = adaptive("hover", light: 0xEAE3D8, dark: 0x41382F)
+    static let panelRule = adaptive("rule", light: 0xD8CFC2, dark: 0x574B40)
 
-    static let panelGround = Color(hex: 0x131317)
+    // Even the quietest text needs enough contrast to carry a small label.
+    static let ink = adaptive("ink", light: 0x302A24, dark: 0xF3ECE2)
+    static let inkMuted = adaptive("muted", light: 0x655B50, dark: 0xC7BAAA)
+    static let inkFaint = adaptive("faint", light: 0x75695C, dark: 0xB1A18E)
 
-    // MARK: - Ink
+    // The asset-catalog accent still supplies the tint for system controls.
+    static let terracotta = Color(hex: 0xD97757)
+    static let ok = adaptive("ok", light: 0x41644B, dark: 0xA4C4A0)
+    static let warn = adaptive("warn", light: 0x865B16, dark: 0xE4BA72)
+    static let alert = adaptive("alert", light: 0xA33F30, dark: 0xF0A18A)
+    static let xcode = adaptive("xcode", light: 0x386783, dark: 0x9CBFD0)
 
-    /// Three fixed tiers. `.secondary.opacity(0.45)` scattered across a dozen
-    /// files is why nothing read as deliberate.
-    static let ink = Color(hex: 0xECECF1)
-    static let inkMuted = Color(hex: 0x9A9AA7)
-    static let inkFaint = Color(hex: 0x646470)
-
-    // MARK: - Accent and states
-
-    // `accent` is generated from AccentColor.colorset (0xD97757) so system
-    // controls — toggles, focus rings — inherit the brand instead of macOS blue.
-    static let ok = Color(hex: 0x5CC98F)
-    static let warn = Color(hex: 0xE0A458)
-    static let alert = Color(hex: 0xF0616F)
-    static let xcode = Color(hex: 0x4C9AF5)
+    private static func adaptive(_ name: String, light: UInt32, dark: UInt32) -> Color {
+        Color(nsColor: NSColor(name: NSColor.Name("Perch.\(name)")) { appearance in
+            let hex = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+                ? dark : light
+            return NSColor(
+                srgbRed: CGFloat((hex >> 16) & 0xFF) / 255,
+                green: CGFloat((hex >> 8) & 0xFF) / 255,
+                blue: CGFloat(hex & 0xFF) / 255,
+                alpha: 1
+            )
+        })
+    }
 }
 
-// MARK: - Type ramp
-
 extension Font {
-    /// The name of a thing — a session, a server, a daemon.
     static let rowTitle = Font.system(size: 12.5, weight: .medium)
-    /// What kind of thing it is. Never competes with the title.
     static let rowMeta = Font.system(size: 10.5)
-    /// Ages, ports, percentages. Monospaced so a row stops twitching as they tick.
-    static let rowNumber = Font.system(size: 10.5, weight: .medium, design: .monospaced)
+
+    // Tabular digits prevent ticking values from moving without changing the
+    // voice of the surrounding system type.
+    static let rowNumber = Font.system(size: 10.5, weight: .medium).monospacedDigit()
 
     static let sectionLabel = Font.system(size: 9.5, weight: .semibold)
     static let panelTitle = Font.system(size: 13, weight: .semibold)
-
-    /// The three usage percentages, which are the largest text in the panel
-    /// because they are the one number worth reading from across the room.
-    static let statValue = Font.system(size: 18, weight: .semibold, design: .rounded)
-    static let statLabel = Font.system(size: 9, weight: .semibold)
+    static let statValue = Font.system(size: 18, weight: .semibold).monospacedDigit()
+    static let statLabel = Font.system(size: 9, weight: .medium)
     static let statFoot = Font.system(size: 9)
 }
