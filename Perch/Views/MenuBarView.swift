@@ -13,6 +13,7 @@ struct MenuBarView: View {
     @State private var page: Page
     @State private var expanded: Set<String>
     @State private var listHeight: CGFloat = 300
+    @State private var panelHeight: CGFloat = minHeight
 
     init(page: Page = .main, open: String? = nil) {
         _page = State(initialValue: page)
@@ -44,6 +45,14 @@ struct MenuBarView: View {
             }
         }
         .frame(width: Self.panelWidth)
+        .background {
+            // AppKit no longer measures this window's content (see
+            // MenuBarController's `sizingOptions = []`), so this is the only
+            // source of truth for how tall the panel needs to be.
+            GeometryReader { proxy in
+                Color.clear.preference(key: PerchPanelHeightKey.self, value: proxy.size.height)
+            }
+        }
         .frame(minHeight: Self.minHeight, alignment: .top)
         .integralHeight()
         .foregroundStyle(Color.ink)
@@ -80,6 +89,13 @@ struct MenuBarView: View {
         .onReceive(NotificationCenter.default.publisher(for: .perchPanelWillOpen)) { _ in
             expanded = Set(problemSections)
             page = .main
+            requestLayout()
+        }
+        .onPreferenceChange(PerchPanelHeightKey.self) { height in
+            guard height > 0 else { return }
+            let rounded = height.rounded(.up)
+            guard rounded != panelHeight else { return }
+            panelHeight = rounded
             requestLayout()
         }
     }
@@ -181,10 +197,19 @@ private extension MenuBarView {
                 .perchGlassCard()
                 .padding(.horizontal, 9)
 
-                if let bridge = appState.bridge {
-                    BridgeRowView(status: bridge)
-                        .padding(.horizontal, 9)
-                        .padding(.top, 10)
+                if !appState.bridgeTasks.isEmpty {
+                    VStack(spacing: 0) {
+                        ForEach(Array(appState.bridgeTasks.enumerated()), id: \.element.id) { index, task in
+                            if index > 0 {
+                                PerchHairline()
+                                    .padding(.horizontal, 10)
+                            }
+                            BridgeTaskRowView(task: task)
+                        }
+                    }
+                    .perchGlassCard()
+                    .padding(.horizontal, 9)
+                    .padding(.top, 10)
                 }
             }
             .padding(.bottom, 12)
@@ -310,7 +335,10 @@ private extension MenuBarView {
     }
 
     func requestLayout() {
-        NotificationCenter.default.post(name: .perchPanelLayoutChanged, object: nil)
+        NotificationCenter.default.post(
+            name: .perchPanelLayoutChanged, object: nil,
+            userInfo: ["height": panelHeight]
+        )
     }
 
     var sections: [RoostSection] {
@@ -449,6 +477,14 @@ struct RoostSection {
     let count: Int
     let isAlert: Bool
     let rows: () -> AnyView
+}
+
+private struct PerchPanelHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
 }
 
 private struct PerchListHeightKey: PreferenceKey {

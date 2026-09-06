@@ -6,6 +6,19 @@ extension Notification.Name {
     /// The view changed height on its own (a section opened). AppKit owns the
     /// window frame, so it has to be told rather than poll for it.
     static let perchPanelLayoutChanged = Notification.Name("perch.panel.layoutChanged")
+    /// A row wants the panel gone before it does something that steals focus
+    /// (activating another app), so the panel doesn't sit open behind it.
+    static let perchPanelShouldClose = Notification.Name("perch.panel.shouldClose")
+}
+
+/// Without `.titled`, AppKit's default `canBecomeKey` is false, so
+/// `makeKeyAndOrderFront` silently never makes this the key window (verified
+/// via Accessibility: `AXMain`/`focused` both read false on the open panel).
+/// A click still hit-tests to the right AXButton, but with no key window the
+/// event never reaches the tap gesture underneath. Overriding this is what
+/// lets a single click register.
+final class ClickThroughPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
 }
 
 final class MenuBarController: NSObject, NSApplicationDelegate {
@@ -18,6 +31,11 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     private var scrollMonitor: Any?
     private weak var panelContentView: NSView?
     private var panelTopLeft: NSPoint = .zero
+    // `NSHostingController.sizingOptions = []` (below) means AppKit no longer
+    // tracks `panelContentView.fittingSize` — it reads back 0 always. SwiftUI
+    // measures its own content instead and reports it here via
+    // `.perchPanelLayoutChanged`'s userInfo.
+    private var lastReportedHeight: CGFloat = MenuBarView.minHeight
     @AppStorage("hasLaunchedBefore") private var hasLaunchedBefore = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -30,7 +48,6 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         LimitsMonitor.selfCheck()
         LaunchAgent.selfCheck()
         FailureBox.selfCheck()
-        BridgeStatus.selfCheck()
         Task { await Shell.selfCheck() }
 
         if PreviewHarness.isEnabled {
@@ -62,8 +79,16 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
                 .environment(appState)
                 .environment(scrollActivity)
         )
+        // Empty, not the AppKit default: with any sizing option set,
+        // NSHostingView recomputes the window's content-size extrema on every
+        // constraints pass, and a state change from a plain tap (no resize
+        // code involved) can trigger that recompute *during* an in-flight
+        // updateConstraints pass — AppKit throws over the reentrant
+        // setNeedsUpdateConstraints: call (verified via crash log). This
+        // panel's height is fully owned by syncPanelHeight() already.
+        hostingController.sizingOptions = []
 
-        panel = NSPanel(
+        panel = ClickThroughPanel(
             contentRect: NSRect(origin: .zero, size: MenuBarView.panelSize),
             styleMask: [.nonactivatingPanel, .fullSizeContentView],
             backing: .buffered,
@@ -85,10 +110,22 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         // inside the SwiftUI action, before the layout it is about has run.
         NotificationCenter.default.addObserver(
             forName: .perchPanelLayoutChanged, object: nil, queue: .main
+        ) { [weak self] notification in
+            if let height = notification.userInfo?["height"] as? CGFloat {
+                self?.lastReportedHeight = height
+            }
+            DispatchQueue.main.async {
+                self?.syncPanelHeight()
+            }
+        }
+
+        // Next runloop pass, not this one: the notification is posted from
+        // inside the SwiftUI tap handler that is still on the call stack.
+        NotificationCenter.default.addObserver(
+            forName: .perchPanelShouldClose, object: nil, queue: .main
         ) { [weak self] _ in
             DispatchQueue.main.async {
-                self?.panelContentView?.layoutSubtreeIfNeeded()
-                self?.syncPanelHeight()
+                self?.hardClosePanel()
             }
         }
 
@@ -118,10 +155,11 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         }
         panelTopLeft = NSPoint(x: x, y: buttonFrame.minY - 4)
 
-        // Before the height sync, so the panel measures itself already closed
-        // rather than opening tall and then shrinking.
+        // Sizes to whatever height was last reported; the reset this posts
+        // (closed sections, main page) lands its own corrected height
+        // asynchronously through .perchPanelLayoutChanged, same as any other
+        // in-panel layout change.
         NotificationCenter.default.post(name: .perchPanelWillOpen, object: nil)
-        panelContentView?.layoutSubtreeIfNeeded()
 
         syncPanelHeight(animated: false)
         panel.setFrameTopLeftPoint(panelTopLeft)
@@ -173,6 +211,18 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
             self.panel.alphaValue = 1
         })
 
+        removeMonitors()
+    }
+
+    /// No fade: the caller is about to steal focus by activating another
+    /// app, so the panel should just be gone rather than mid-animation.
+    private func hardClosePanel() {
+        removeMonitors()
+        panel.orderOut(nil)
+        panel.alphaValue = 1
+    }
+
+    private func removeMonitors() {
         if let monitor = eventMonitor {
             NSEvent.removeMonitor(monitor)
             eventMonitor = nil
@@ -189,9 +239,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     /// that is what stops it becoming the feedback loop `.preferredContentSize`
     /// was.
     private func syncPanelHeight(animated: Bool = true) {
-        guard let content = panelContentView else { return }
-
-        let height = max(content.fittingSize.height, MenuBarView.minHeight)
+        let height = max(lastReportedHeight, MenuBarView.minHeight)
         guard abs(panel.frame.height - height) > 0.5 else { return }
 
         // One animated setFrame, not setContentSize plus a re-pin: two separate

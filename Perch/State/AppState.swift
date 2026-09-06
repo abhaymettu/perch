@@ -9,9 +9,9 @@ final class AppState {
     var agents: [LaunchAgent] = []
     var cronJobs: [CronJob] = []
 
-    /// The exec bridge, folded from its launch agent and the file the poller
-    /// writes. nil on a Mac that has neither.
-    var bridge: BridgeStatus?
+    /// Live tmux/herdr tasks, folded from the status file `Scripts/bridge-writer.py`
+    /// writes. Empty when the writer has never run or has gone stale.
+    var bridgeTasks: [BridgeTask] = []
 
     let usage: LimitsMonitor
 
@@ -93,7 +93,7 @@ final class AppState {
         sessions = scenario.sessions
         agents = scenario.agents
         cronJobs = scenario.cronJobs
-        bridge = scenario.bridge
+        bridgeTasks = scenario.bridgeTasks
         restartStates = scenario.restartFailures.mapValues { .failed($0) }
         isInitialLoad = false
         isActive = totalCount > 0
@@ -164,11 +164,11 @@ final class AppState {
             if isActive != nowActive { isActive = nowActive }
         }
 
-        // Outside the animation on purpose: its age string ticks every poll,
+        // Outside the animation on purpose: its status text ticks every poll,
         // and springing the whole panel once every three seconds is worse than
         // the hard cut the spring exists to prevent.
-        let newBridge = BridgeStatus.read(agents: newAgents)
-        if bridge != newBridge { bridge = newBridge }
+        let newBridgeTasks = BridgeTasks.read() ?? []
+        if bridgeTasks != newBridgeTasks { bridgeTasks = newBridgeTasks }
 
         if totalCount > previousCount {
             lastEvent = .newDetected
