@@ -7,31 +7,48 @@ struct LaunchAgentRowView: View {
     @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 0) {
-            ColorBar(color: agent.color)
-
-            Text(agent.shortLabel)
-                .font(.rowTitle)
-                .foregroundStyle(Color.ink)
-                .lineLimit(1)
-
-            Spacer(minLength: 8)
-
-            // Read-only: reveal only. No start, no stop, no unload.
-            if isHovered {
-                RowAction(symbol: "folder", help: "Reveal plist") {
-                    appState.reveal(path: agent.plistPath)
-                }
-                .transition(.opacity)
-            } else {
-                Text(agent.detail)
-                    .font(.rowMeta)
-                    .foregroundStyle(agent.hasFailed ? Color.alert : Color.inkFaint)
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 7) {
+                Text(agent.shortLabel)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.ink)
                     .lineLimit(1)
+
+                Spacer(minLength: 2)
+
+                // Use the scanner's verdict rather than treating every
+                // non-failing launchd job as a running process.
+                PerchStateLabel(
+                    word: agent.hasFailed ? "failed" : agent.detail,
+                    state: agent.hasFailed ? .warning : .healthy
+                )
+                .monospacedDigit()
+                .contentTransition(.numericText())
+
+                if isHovered {
+                    RowAction(symbol: "folder", help: "Reveal plist") {
+                        appState.reveal(path: agent.plistPath)
+                    }
                     .transition(.opacity)
+                }
+            }
+            .frame(minHeight: 17)
+
+            if agent.hasFailed {
+                Text(agent.detail)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.inkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .hoverRow { isHovered = $0 }
+        .help(agent.detail)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(agent.shortLabel)
+        .accessibilityValue("\(agent.hasFailed ? "failed, " : "")\(agent.detail)")
+        .accessibilityAction(named: Text("Reveal plist")) {
+            appState.reveal(path: agent.plistPath)
+        }
     }
 }
 
@@ -39,21 +56,27 @@ struct CronJobRowView: View {
     let job: CronJob
 
     var body: some View {
-        HStack(spacing: 0) {
-            ColorBar(color: .inkFaint)
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 7) {
+                Text(job.command)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.ink)
+                    .lineLimit(1)
 
-            Text(job.command)
-                .font(.rowTitle)
-                .foregroundStyle(Color.ink)
-                .lineLimit(1)
+                Spacer(minLength: 2)
 
-            Spacer(minLength: 8)
+                PerchStateLabel(word: "scheduled", state: .working)
+            }
+            .frame(minHeight: 17)
 
             Text(job.schedule)
-                .font(.rowNumber)
-                .foregroundStyle(Color.inkFaint)
+                .font(.system(size: 11))
+                .foregroundStyle(Color.inkMuted)
+                .monospacedDigit()
                 .lineLimit(1)
         }
         .hoverRow()
+        .help("\(job.command) · \(job.schedule)")
+        .accessibilityElement(children: .combine)
     }
 }
