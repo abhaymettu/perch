@@ -17,14 +17,24 @@ struct ServerRowView: View {
         return nil
     }
 
+    private var frameworkLabel: String {
+        server.framework == .unknown ? server.command : server.framework.rawValue
+    }
+
+    private var stateWord: String {
+        if isRestarting { return "restarting…" }
+        if failureMessage != nil { return "failed to restart" }
+        return "live"
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 3) {
             header
 
             if let failureMessage {
                 FailureBox(message: failureMessage)
-                    .padding(.leading, HoverRowStyle.horizontalPadding + ColorBar.gutter)
-                    .padding(.trailing, HoverRowStyle.horizontalPadding)
+                    .padding(.horizontal, HoverRowStyle.horizontalPadding)
+                    .padding(.bottom, 6)
                     .transition(.opacity)
             }
         }
@@ -32,68 +42,75 @@ struct ServerRowView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 0) {
-            ColorBar(color: barColor, isWorking: isRestarting)
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
+                Text(server.projectName)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.ink)
+                    .lineLimit(1)
 
-            Text(server.projectName)
-                .font(.rowTitle)
-                .foregroundStyle(Color.ink)
-                .lineLimit(1)
+                Text("· :\(server.port)")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.inkMuted)
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+                    .fixedSize()
 
-            Spacer(minLength: 8)
+                Spacer(minLength: 2)
 
-            if isHovered && !isRestarting {
-                actions
-                    .transition(.opacity)
-            } else {
-                subtitle
-                    .transition(.opacity)
+                if failureMessage == nil {
+                    PerchStateLabel(
+                        word: stateWord,
+                        state: isRestarting ? .working : .healthy
+                    )
+                }
+            }
+            .frame(minHeight: 17)
+
+            if failureMessage != nil {
+                PerchStateLabel(word: "failed to restart", state: .warning)
+                    .padding(.top, 1)
             }
 
-            Text(verbatim: ":\(server.port)")
-                .font(.rowNumber)
-                .foregroundStyle(Color.inkMuted)
-                .monospacedDigit()
-                .frame(width: 38, alignment: .trailing)
-                .padding(.leading, 8)
+            HStack(spacing: 4) {
+                Text(frameworkLabel)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.inkMuted)
+                    .lineLimit(1)
+
+                Spacer(minLength: 0)
+
+                if isHovered && !isRestarting {
+                    actions
+                        .transition(.opacity)
+                }
+            }
+            .frame(minHeight: 16)
         }
-        .opacity(isRestarting ? 0.4 : 1)
-        .allowsHitTesting(!isRestarting)
-        .animation(.easeOut(duration: 0.2), value: isRestarting)
         .hoverRow { isHovered = $0 }
         .onTapGesture {
-            guard failureMessage == nil else { return }
+            guard !isRestarting, failureMessage == nil else { return }
             appState.openInBrowser(server)
         }
-    }
-}
-
-// MARK: - Pieces
-
-private extension ServerRowView {
-    var barColor: Color {
-        failureMessage == nil ? server.framework.color : Color.alert
-    }
-
-    @ViewBuilder
-    var subtitle: some View {
-        if isRestarting {
-            Text("restarting…")
-                .font(.rowMeta)
-                .foregroundStyle(Color.inkFaint)
-        } else if failureMessage != nil {
-            Text("failed to restart")
-                .font(.rowMeta)
-                .foregroundStyle(Color.alert)
-        } else {
-            Text(server.framework == .unknown ? server.command : server.framework.rawValue)
-                .font(.rowMeta)
-                .foregroundStyle(Color.inkFaint)
-                .lineLimit(1)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(server.projectName), port \(server.port)")
+        .accessibilityValue("\(stateWord), \(frameworkLabel)")
+        .accessibilityAction(named: Text("Open in browser")) {
+            guard !isRestarting, failureMessage == nil else { return }
+            appState.openInBrowser(server)
         }
+        .accessibilityAction(named: Text("Restart server")) {
+            guard !isRestarting else { return }
+            appState.restartServer(server)
+        }
+        .accessibilityAction(named: Text(failureMessage == nil ? "Stop server" : "Dismiss")) {
+            guard !isRestarting else { return }
+            stopOrDismiss()
+        }
+        .help(failureMessage ?? "\(frameworkLabel) · Open in browser")
     }
 
-    var actions: some View {
+    private var actions: some View {
         HStack(spacing: RowAction.spacing) {
             RowAction(symbol: "arrow.clockwise", help: "Restart server") {
                 appState.restartServer(server)
@@ -104,12 +121,16 @@ private extension ServerRowView {
                 help: failureMessage == nil ? "Stop server" : "Dismiss",
                 tint: .alert
             ) {
-                if failureMessage == nil {
-                    appState.killServer(server)
-                } else {
-                    appState.dismissFailed(server)
-                }
+                stopOrDismiss()
             }
+        }
+    }
+
+    private func stopOrDismiss() {
+        if failureMessage == nil {
+            appState.killServer(server)
+        } else {
+            appState.dismissFailed(server)
         }
     }
 }
