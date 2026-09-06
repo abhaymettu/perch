@@ -2,7 +2,6 @@ import SwiftUI
 
 struct RowAction: View {
     static let spacing: CGFloat = 2
-
     private static let diameter: CGFloat = 20
 
     let symbol: String
@@ -15,17 +14,15 @@ struct RowAction: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(isHovered ? (tint ?? .ink) : Color.inkMuted)
+                .font(.system(size: 10, weight: .medium))
+                // Retain tint in the API, but destructive actions are not a
+                // warning state. Amber belongs to actual problems only.
+                .foregroundStyle(isHovered ? Color.ink : Color.inkMuted)
                 .frame(width: Self.diameter, height: Self.diameter)
                 .background {
                     if isHovered {
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(Color.panelHover)
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 3)
-                                    .strokeBorder(Color.panelRule, lineWidth: 1)
-                            }
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(.white.opacity(0.08))
                     }
                 }
                 .contentShape(Rectangle())
@@ -50,16 +47,12 @@ struct FooterAction: View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(isHovered ? hoverTint : Color.inkMuted)
+                .foregroundStyle(isHovered ? Color.ink : Color.inkMuted)
                 .frame(width: 26, height: 24)
                 .background {
                     if isHovered {
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.panelHover)
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 4)
-                                    .strokeBorder(Color.panelRule, lineWidth: 1)
-                            }
+                            .fill(.white.opacity(0.08))
                     }
                 }
                 .contentShape(Rectangle())
