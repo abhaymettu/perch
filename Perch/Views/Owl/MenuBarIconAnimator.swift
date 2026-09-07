@@ -80,6 +80,12 @@ final class MenuBarIconAnimator {
     }
 
     private func draw(_ pose: OwlPose) {
-        button?.image = MenuBarIcon.render(pose: pose, alert: isAlert)
+        // The button's own effectiveAppearance reflects the real menu bar —
+        // AppKit already resolves this per-item for template-image tinting,
+        // independent of whatever appearance the app's own windows are
+        // forced into (Perch forces .darkAqua for its panel). NSApp's own
+        // appearance would report the wrong thing here.
+        let isDarkMenuBar = button?.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        button?.image = MenuBarIcon.render(pose: pose, alert: isAlert, isDarkMenuBar: isDarkMenuBar)
     }
 }
