@@ -99,8 +99,12 @@ listener on its own interface. Not revisited unless the cloud gains v6 egress.
 - Reliability: only the Mac's native tailscaled holds an outbound connection, and it
   already survives sleep/wake and Wi-Fi roaming (verified daily by the current ssh
   path). The public hostname never changes, so the cloud needs no discovery.
-- Simplicity: Funnel on 8443 already exists. The cloud side is `curl` or any
-  WebSocket client; no tailscaled, no proxy, no ControlMaster.
+- Simplicity: Funnel already runs on this Mac (8443, TLS-terminated TCP to
+  localhost:22 for the ssh fallback; checked 2026-09-12 with `tailscale serve
+  status`). cmd-server is currently exposed tailnet-only on 8444. Going live means
+  adding one funnel entry for the daemon on a second port, or moving ssh off 8443.
+  The cloud side is `curl` or any WebSocket client; no tailscaled, no proxy, no
+  ControlMaster.
 - Cost: the Mac's daemon is reachable from the internet, gated only by the token.
   That is the same posture cmd-server already runs under, now stated as design
   rather than accident. Mitigations are in "Security posture" below.
@@ -142,7 +146,7 @@ queue behaviour.
 
 ### Cloud client (one WSS per session, both lanes multiplexed)
 
-- **Dial**: `wss://<funnel-host>:8443/v1/ctl`, `Authorization: Bearer <token>`,
+- **Dial**: `wss://<funnel-host>:<daemon-port>/v1/ctl`, `Authorization: Bearer <token>`,
   connect timeout 5 s. First frame after upgrade: `{"hello": <session-id>, "since": <last-ack-id>}`.
 - **Multiplex**: each frame carries `{"id", "lane": "device"|"orch", "verb", "args"}`.
   Device frames are answered in order of arrival; orch frames may stream partial
@@ -194,8 +198,10 @@ queue behaviour.
 
 ## Verify before build (open items, none blocking the decision)
 
-- Confirm the cloud sandbox's HTTPS egress allows port 8443, not only 443. If not,
-  the funnel moves to 443 (config change, separate lane).
+- Pick the daemon's funnel port. 8443 is taken by the ssh funnel and 443 was
+  deliberately withdrawn from public on 2026-09-12. Confirm the cloud sandbox's
+  HTTPS egress allows the chosen port; if only 443 works, ssh and the daemon must
+  share 443 behind path or SNI routing (config change, separate lane).
 - Confirm `tailscale serve` on the installed version passes WebSocket upgrades to
   the loopback backend. If not, use Funnel's TLS-terminated TCP mode and speak WSS
   directly from the daemon.
@@ -206,6 +212,6 @@ queue behaviour.
 
 Everything this decision leads to can be unexposed with one command and no reboot:
 
-    tailscale funnel --https=8443 off
+    tailscale funnel --https=<daemon-port> off
 
-The daemon then serves loopback only, reachable by the ssh fallback.
+The daemon then serves loopback only, reachable by the ssh fallback on 8443.
