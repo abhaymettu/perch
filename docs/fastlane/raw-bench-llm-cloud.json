@@ -1,0 +1,326 @@
+{
+  "mode": "llm",
+  "n": 63,
+  "repeat": 1,
+  "positives_total": 43,
+  "positives_correct": 15,
+  "positives_pct": 34.883720930232556,
+  "must_fallback_total": 20,
+  "false_fires": 2,
+  "false_fire_texts": [
+    "lock the door",
+    "volume 3 of the book"
+  ],
+  "latency_ms": {
+    "p50": 8857.886059999146,
+    "p95": 10281.141405999733,
+    "mean": 8859.57604434912,
+    "max": 10781.063508999068
+  },
+  "misses": [
+    {
+      "text": "brightness zero",
+      "expect": {
+        "action": "brightness.set",
+        "value": 0
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "brightness to 100",
+      "expect": {
+        "action": "brightness.set",
+        "value": 100
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "could you set the brightness to zero please",
+      "expect": {
+        "action": "brightness.set",
+        "value": 0
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "brightness 30%",
+      "expect": {
+        "action": "brightness.set",
+        "value": 30
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "brightness half",
+      "expect": {
+        "action": "brightness.set",
+        "value": 50
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "brightness to 1",
+      "expect": {
+        "action": "brightness.set",
+        "value": 0.01
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "what's my brightness",
+      "expect": {
+        "action": "brightness.get"
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "what is my brightness?",
+      "expect": {
+        "action": "brightness.get"
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "volume 50",
+      "expect": {
+        "action": "volume.set",
+        "value": 50
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "volume full",
+      "expect": {
+        "action": "volume.set",
+        "value": 100
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "mute",
+      "expect": {
+        "action": "mute.set",
+        "value": true
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "please mute",
+      "expect": {
+        "action": "mute.set",
+        "value": true
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "hey jarvis mute",
+      "expect": {
+        "action": "mute.set",
+        "value": true
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "unmute",
+      "expect": {
+        "action": "mute.set",
+        "value": false
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "can you unmute",
+      "expect": {
+        "action": "mute.set",
+        "value": false
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "open chrome",
+      "expect": {
+        "action": "app.raise",
+        "app": "Google Chrome"
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "switch to chrome",
+      "expect": {
+        "action": "app.raise",
+        "app": "Google Chrome"
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "raise slack",
+      "expect": {
+        "action": "app.raise",
+        "app": "Slack"
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "open spotify",
+      "expect": {
+        "action": "app.raise",
+        "app": "Spotify"
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "open notes",
+      "expect": {
+        "action": "app.raise",
+        "app": "Notes"
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "hide slack",
+      "expect": {
+        "action": "app.hide",
+        "app": "Slack"
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "hide spotify",
+      "expect": {
+        "action": "app.hide",
+        "app": "Spotify"
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "fullscreen chrome",
+      "expect": {
+        "action": "window.fullscreen",
+        "app": "Google Chrome",
+        "value": true
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "fullscreen safari",
+      "expect": {
+        "action": "window.fullscreen",
+        "app": "Safari",
+        "value": true
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "minimize slack",
+      "expect": {
+        "action": "window.minimize",
+        "app": "Slack"
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "minimize chrome",
+      "expect": {
+        "action": "window.minimize",
+        "app": "Google Chrome"
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "open https://github.com",
+      "expect": {
+        "action": "url.open",
+        "url": "https://github.com"
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "open http://example.com",
+      "expect": {
+        "action": "url.open",
+        "url": "http://example.com"
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "lock the door",
+      "expect": null,
+      "got": {
+        "action": "key.press",
+        "key": "q",
+        "mods": [
+          "cmd",
+          "ctrl"
+        ]
+      },
+      "tier": "llm",
+      "must_fallback": true
+    },
+    {
+      "text": "volume 3 of the book",
+      "expect": null,
+      "got": {
+        "action": "volume.set",
+        "value": 3
+      },
+      "tier": "llm",
+      "must_fallback": true
+    }
+  ]
+}

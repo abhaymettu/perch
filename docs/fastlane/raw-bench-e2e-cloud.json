@@ -1,0 +1,321 @@
+{
+ "summary": {
+  "n": 20,
+  "ok": 20,
+  "mode": "hybrid",
+  "sock": "/home/sandbox/.perch-bridge/holder/holder.sock",
+  "classify_ms": {
+   "p50": 0.053781001042807475,
+   "p95": 0.06479600051534362,
+   "mean": 0.051774050189123955,
+   "min": 0.015403998986585066,
+   "max": 0.06526399920403492
+  },
+  "holder_ms": {
+   "p50": 122.35739899915643,
+   "p95": 129.72539400107053,
+   "mean": 123.46920889985995,
+   "min": 119.49970699970436,
+   "max": 131.15339199976006
+  },
+  "total_ms": {
+   "p50": 122.40314500013483,
+   "p95": 129.79065800027456,
+   "mean": 123.52098295004907,
+   "min": 119.55985200074792,
+   "max": 131.20316099957563
+  }
+ },
+ "trials": [
+  {
+   "text": "brightness 100",
+   "op": {
+    "action": "brightness.set",
+    "value": 100
+   },
+   "tier": "rules",
+   "classify_ms": 0.015403998986585066,
+   "holder_ms": 120.99246599973412,
+   "total_ms": 121.00786999872071,
+   "ok": true,
+   "daemon_ms": 2,
+   "readback": 100,
+   "error": null
+  },
+  {
+   "text": "what is my brightness",
+   "op": {
+    "action": "brightness.get"
+   },
+   "tier": "rules",
+   "classify_ms": 0.054396999985328875,
+   "holder_ms": 127.96098299986625,
+   "total_ms": 128.01537999985158,
+   "ok": true,
+   "daemon_ms": 1,
+   "readback": 100,
+   "error": null
+  },
+  {
+   "text": "brightness 100",
+   "op": {
+    "action": "brightness.set",
+    "value": 100
+   },
+   "tier": "rules",
+   "classify_ms": 0.04651899871532805,
+   "holder_ms": 122.78501000037068,
+   "total_ms": 122.831528999086,
+   "ok": true,
+   "daemon_ms": 1,
+   "readback": 100,
+   "error": null
+  },
+  {
+   "text": "what is my brightness",
+   "op": {
+    "action": "brightness.get"
+   },
+   "tier": "rules",
+   "classify_ms": 0.05198500002734363,
+   "holder_ms": 121.14570300036576,
+   "total_ms": 121.1976880003931,
+   "ok": true,
+   "daemon_ms": 1,
+   "readback": 100,
+   "error": null
+  },
+  {
+   "text": "brightness 100",
+   "op": {
+    "action": "brightness.set",
+    "value": 100
+   },
+   "tier": "rules",
+   "classify_ms": 0.04976899981556926,
+   "holder_ms": 131.15339199976006,
+   "total_ms": 131.20316099957563,
+   "ok": true,
+   "daemon_ms": 1,
+   "readback": 100,
+   "error": null
+  },
+  {
+   "text": "what is my brightness",
+   "op": {
+    "action": "brightness.get"
+   },
+   "tier": "rules",
+   "classify_ms": 0.05494399920280557,
+   "holder_ms": 121.35127100009413,
+   "total_ms": 121.40621499929694,
+   "ok": true,
+   "daemon_ms": 1,
+   "readback": 100,
+   "error": null
+  },
+  {
+   "text": "brightness 100",
+   "op": {
+    "action": "brightness.set",
+    "value": 100
+   },
+   "tier": "rules",
+   "classify_ms": 0.06151799971121363,
+   "holder_ms": 128.0537260008714,
+   "total_ms": 128.1152440005826,
+   "ok": true,
+   "daemon_ms": 1,
+   "readback": 100,
+   "error": null
+  },
+  {
+   "text": "what is my brightness",
+   "op": {
+    "action": "brightness.get"
+   },
+   "tier": "rules",
+   "classify_ms": 0.04475800051295664,
+   "holder_ms": 123.86397900081647,
+   "total_ms": 123.90873700132943,
+   "ok": true,
+   "daemon_ms": 1,
+   "readback": 100,
+   "error": null
+  },
+  {
+   "text": "brightness 100",
+   "op": {
+    "action": "brightness.set",
+    "value": 100
+   },
+   "tier": "rules",
+   "classify_ms": 0.06526399920403492,
+   "holder_ms": 129.72539400107053,
+   "total_ms": 129.79065800027456,
+   "ok": true,
+   "daemon_ms": 1,
+   "readback": 100,
+   "error": null
+  },
+  {
+   "text": "what is my brightness",
+   "op": {
+    "action": "brightness.get"
+   },
+   "tier": "rules",
+   "classify_ms": 0.04414300019561779,
+   "holder_ms": 122.41332099983993,
+   "total_ms": 122.45746400003554,
+   "ok": true,
+   "daemon_ms": 1,
+   "readback": 100,
+   "error": null
+  },
+  {
+   "text": "brightness 100",
+   "op": {
+    "action": "brightness.set",
+    "value": 100
+   },
+   "tier": "rules",
+   "classify_ms": 0.04514800093602389,
+   "holder_ms": 122.55276999894704,
+   "total_ms": 122.59791799988307,
+   "ok": true,
+   "daemon_ms": 1,
+   "readback": 100,
+   "error": null
+  },
+  {
+   "text": "what is my brightness",
+   "op": {
+    "action": "brightness.get"
+   },
+   "tier": "rules",
+   "classify_ms": 0.053781001042807475,
+   "holder_ms": 120.47770099889021,
+   "total_ms": 120.53148199993302,
+   "ok": true,
+   "daemon_ms": 1,
+   "readback": 100,
+   "error": null
+  },
+  {
+   "text": "brightness 100",
+   "op": {
+    "action": "brightness.set",
+    "value": 100
+   },
+   "tier": "rules",
+   "classify_ms": 0.049031999878934585,
+   "holder_ms": 129.24223099980736,
+   "total_ms": 129.2912629996863,
+   "ok": true,
+   "daemon_ms": 1,
+   "readback": 100,
+   "error": null
+  },
+  {
+   "text": "what is my brightness",
+   "op": {
+    "action": "brightness.get"
+   },
+   "tier": "rules",
+   "classify_ms": 0.051855000492651016,
+   "holder_ms": 120.75013899993792,
+   "total_ms": 120.80199400043057,
+   "ok": true,
+   "daemon_ms": 1,
+   "readback": 100,
+   "error": null
+  },
+  {
+   "text": "brightness 100",
+   "op": {
+    "action": "brightness.set",
+    "value": 100
+   },
+   "tier": "rules",
+   "classify_ms": 0.058727000578073785,
+   "holder_ms": 121.4280919994053,
+   "total_ms": 121.48681899998337,
+   "ok": true,
+   "daemon_ms": 1,
+   "readback": 100,
+   "error": null
+  },
+  {
+   "text": "what is my brightness",
+   "op": {
+    "action": "brightness.get"
+   },
+   "tier": "rules",
+   "classify_ms": 0.045746000978397205,
+   "holder_ms": 122.35739899915643,
+   "total_ms": 122.40314500013483,
+   "ok": true,
+   "daemon_ms": 1,
+   "readback": 100,
+   "error": null
+  },
+  {
+   "text": "brightness 100",
+   "op": {
+    "action": "brightness.set",
+    "value": 100
+   },
+   "tier": "rules",
+   "classify_ms": 0.0624250005785143,
+   "holder_ms": 119.6643530001893,
+   "total_ms": 119.72677800076781,
+   "ok": true,
+   "daemon_ms": 2,
+   "readback": 100,
+   "error": null
+  },
+  {
+   "text": "what is my brightness",
+   "op": {
+    "action": "brightness.get"
+   },
+   "tier": "rules",
+   "classify_ms": 0.06479600051534362,
+   "holder_ms": 121.68381999981648,
+   "total_ms": 121.74861600033182,
+   "ok": true,
+   "daemon_ms": 0,
+   "readback": 100,
+   "error": null
+  },
+  {
+   "text": "brightness 100",
+   "op": {
+    "action": "brightness.set",
+    "value": 100
+   },
+   "tier": "rules",
+   "classify_ms": 0.06014500104356557,
+   "holder_ms": 119.49970699970436,
+   "total_ms": 119.55985200074792,
+   "ok": true,
+   "daemon_ms": 1,
+   "readback": 100,
+   "error": null
+  },
+  {
+   "text": "what is my brightness",
+   "op": {
+    "action": "brightness.get"
+   },
+   "tier": "rules",
+   "classify_ms": 0.05512500138138421,
+   "holder_ms": 122.2827209985553,
+   "total_ms": 122.33784599993669,
+   "ok": true,
+   "daemon_ms": 1,
+   "readback": 100,
+   "error": null
+  }
+ ]
+}

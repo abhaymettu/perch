@@ -1,0 +1,214 @@
+{
+  "mode": "llm",
+  "n": 63,
+  "repeat": 1,
+  "positives_total": 43,
+  "positives_correct": 35,
+  "positives_pct": 81.3953488372093,
+  "must_fallback_total": 20,
+  "false_fires": 9,
+  "false_fire_texts": [
+    "open the window",
+    "volume 3 of the book",
+    "brightness up a bit",
+    "make it louder",
+    "mute after the call",
+    "don't mute",
+    "chrome",
+    "what is brightness",
+    "how do i lock the screen"
+  ],
+  "latency_ms": {
+    "p50": 476.55126200152154,
+    "p95": 743.2504419994075,
+    "mean": 501.2107013333171,
+    "max": 781.5811820000818
+  },
+  "misses": [
+    {
+      "text": "unmute",
+      "expect": {
+        "action": "mute.set",
+        "value": false
+      },
+      "got": {
+        "value": 0.01,
+        "action": "volume.set"
+      },
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "can you unmute",
+      "expect": {
+        "action": "mute.set",
+        "value": false
+      },
+      "got": {
+        "value": 0.01,
+        "action": "volume.set"
+      },
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "open chrome",
+      "expect": {
+        "action": "app.raise",
+        "app": "Google Chrome"
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "switch to chrome",
+      "expect": {
+        "action": "app.raise",
+        "app": "Google Chrome"
+      },
+      "got": {
+        "action": "app.frontmost"
+      },
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "open spotify",
+      "expect": {
+        "action": "app.raise",
+        "app": "Spotify"
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "open notes",
+      "expect": {
+        "action": "app.raise",
+        "app": "Notes"
+      },
+      "got": null,
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "minimize slack",
+      "expect": {
+        "action": "window.minimize",
+        "app": "Slack"
+      },
+      "got": {
+        "app": "Slack",
+        "action": "app.hide"
+      },
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "minimize chrome",
+      "expect": {
+        "action": "window.minimize",
+        "app": "Google Chrome"
+      },
+      "got": {
+        "app": "Google Chrome",
+        "action": "app.hide"
+      },
+      "tier": "llm",
+      "must_fallback": false
+    },
+    {
+      "text": "open the window",
+      "expect": null,
+      "got": {
+        "action": "app.frontmost"
+      },
+      "tier": "llm",
+      "must_fallback": true
+    },
+    {
+      "text": "volume 3 of the book",
+      "expect": null,
+      "got": {
+        "value": 3,
+        "action": "volume.set"
+      },
+      "tier": "llm",
+      "must_fallback": true
+    },
+    {
+      "text": "brightness up a bit",
+      "expect": null,
+      "got": {
+        "value": 10,
+        "action": "brightness.set"
+      },
+      "tier": "llm",
+      "must_fallback": true
+    },
+    {
+      "text": "make it louder",
+      "expect": null,
+      "got": {
+        "value": 100,
+        "action": "volume.set"
+      },
+      "tier": "llm",
+      "must_fallback": true
+    },
+    {
+      "text": "mute after the call",
+      "expect": null,
+      "got": {
+        "value": true,
+        "action": "mute.set"
+      },
+      "tier": "llm",
+      "must_fallback": true
+    },
+    {
+      "text": "don't mute",
+      "expect": null,
+      "got": {
+        "value": false,
+        "action": "mute.set"
+      },
+      "tier": "llm",
+      "must_fallback": true
+    },
+    {
+      "text": "chrome",
+      "expect": null,
+      "got": {
+        "action": "app.frontmost"
+      },
+      "tier": "llm",
+      "must_fallback": true
+    },
+    {
+      "text": "what is brightness",
+      "expect": null,
+      "got": {
+        "action": "brightness.get"
+      },
+      "tier": "llm",
+      "must_fallback": true
+    },
+    {
+      "text": "how do i lock the screen",
+      "expect": null,
+      "got": {
+        "key": "q",
+        "action": "key.press",
+        "mods": [
+          "cmd",
+          "ctrl"
+        ]
+      },
+      "tier": "llm",
+      "must_fallback": true
+    }
+  ]
+}

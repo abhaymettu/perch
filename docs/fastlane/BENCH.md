@@ -153,3 +153,25 @@ python3 Scripts/fastlane/bench_classify.py --set Scripts/fastlane/intents.json -
 python3 Scripts/fastlane/bench_classify.py --set Scripts/fastlane/intents.json --mode llm --via-holder /tmp/perch-holder-test/holder.sock
 python3 Scripts/fastlane/bench_e2e.py --sock /tmp/perch-holder-test/holder.sock --n 20
 ```
+
+## Cloud-side results (sandbox, 2026-09-12 16:40-16:41 CDT)
+
+Measured from the cloud sandbox by the runner; raw JSON in docs/fastlane/raw-bench-*.json.
+
+Classifier legs, intents.json (63 utterances = 43 positives + 20 must-fallback):
+
+| leg | positives | false fires | p50 |
+|---|---|---|---|
+| hybrid, rules + cloud gemma3:1b | 43/43 (100%) | 0 | 0.01 ms |
+| hybrid, rules + Mac gemma via holder | 43/43 (100%) | 0 | 183 ms |
+| Mac gemma alone via holder | 35/43 (81%) FAIL | 9 FAIL | 477 ms |
+| cloud gemma3:1b alone (2-core sandbox) | 15/43 (35%) FAIL | 2 FAIL | 8858 ms |
+
+Leg decision (SPEC SC2/SC3): rules-first hybrid wins; LLM fallback leg belongs to the
+Mac gemma (uniform 183 ms) - the sandbox 1b is both slowest and least accurate, and
+standalone LLMs false-fire on safety-critical negatives ("don't mute").
+
+End to end, receipt -> readback (bench_e2e, hybrid, n=20, 20/20 ok, invisible verbs):
+classify 0.05 ms, holder round trip 122 ms, TOTAL p50 122 ms / p95 130 ms.
+Before (cloud, n=5): cold path 1610 ms p50 (ssh 913 + dial 563 + verb 122); ~33 s with
+the agent-turn path. Target ~1 s beaten ~8x.

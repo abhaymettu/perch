@@ -1,0 +1,18 @@
+{
+  "mode": "hybrid",
+  "n": 63,
+  "repeat": 1,
+  "positives_total": 43,
+  "positives_correct": 43,
+  "positives_pct": 100.0,
+  "must_fallback_total": 20,
+  "false_fires": 0,
+  "false_fire_texts": [],
+  "latency_ms": {
+    "p50": 183.1083920005767,
+    "p95": 203.02353900115122,
+    "mean": 188.42188080949228,
+    "max": 473.8421069996548
+  },
+  "misses": []
+}
