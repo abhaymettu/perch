@@ -12,6 +12,7 @@ final class AppState {
     /// Live tmux/herdr tasks, folded from the status file `Scripts/bridge-writer.py`
     /// writes. Empty when the writer has never run or has gone stale.
     var bridgeTasks: [BridgeTask] = []
+    var bridgeStale: Bool = false
 
     let usage: LimitsMonitor
 
@@ -167,8 +168,15 @@ final class AppState {
         // Outside the animation on purpose: its status text ticks every poll,
         // and springing the whole panel once every three seconds is worse than
         // the hard cut the spring exists to prevent.
-        let newBridgeTasks = BridgeTasks.read() ?? []
-        if bridgeTasks != newBridgeTasks { bridgeTasks = newBridgeTasks }
+        // nil means the writer is stale or has never run - keep that visible
+        // instead of letting the section silently vanish looking "clean".
+        if let liveBridge = BridgeTasks.read() {
+            if bridgeTasks != liveBridge { bridgeTasks = liveBridge }
+            if bridgeStale { bridgeStale = false }
+        } else if !bridgeStale {
+            bridgeTasks = []
+            bridgeStale = true
+        }
 
         if totalCount > previousCount {
             lastEvent = .newDetected

@@ -37,7 +37,9 @@ def status_text_from_title(title):
     end = title.rfind('"')
     if start != -1 and end > start:
         return title[start + 1:end]
-    return None
+    # fallback: the raw terminal title is itself useful context (lane TUIs set it)
+    t = title.strip()
+    return t[:80] if t else None
 
 
 def build_tasks():
