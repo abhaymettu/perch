@@ -141,9 +141,9 @@ private struct MenuBarOwl: View {
             if !punch.isEmpty {
                 context.drawLayer { layer in
                     layer.clip(to: head)
-                    // Glassy white eyes and beak either way: bright glyphs
-                    // floating on the glass body, not holes punched in it.
-                    let eyeTint: Color = .white.opacity(0.92)
+                    // Frosted glass white: translucent so the bar bleeds
+                    // through the eyes and beak like it does the body.
+                    let eyeTint: Color = .white.opacity(0.55)
                     layer.fill(punch, with: .color(eyeTint))
                 }
             }
