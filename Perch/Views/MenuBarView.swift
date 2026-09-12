@@ -197,20 +197,39 @@ private extension MenuBarView {
                 .perchGlassCard()
                 .padding(.horizontal, 9)
 
-                if !appState.bridgeTasks.isEmpty {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(appState.bridgeStale
+                         ? "Bridge · writer stale"
+                         : "Bridge · tailscale direct · \(appState.bridgeTasks.count) live")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(appState.bridgeStale ? Color.warn : Color.inkMuted)
+                        .frame(height: 16)
+                        .padding(.leading, 18)
+                        .padding(.top, 8)
+                        .padding(.bottom, 5)
+
                     VStack(spacing: 0) {
-                        ForEach(Array(appState.bridgeTasks.enumerated()), id: \.element.id) { index, task in
-                            if index > 0 {
-                                PerchHairline()
-                                    .padding(.horizontal, 10)
+                        if appState.bridgeStale {
+                            Text("bridge-writer not reporting - it lives in tmux session 'agent', window bridge-writer")
+                                .font(.system(size: 11))
+                                .foregroundStyle(Color.inkMuted)
+                                .lineLimit(2)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 8)
+                        } else {
+                            ForEach(Array(appState.bridgeTasks.enumerated()), id: \.element.id) { index, task in
+                                if index > 0 {
+                                    PerchHairline()
+                                        .padding(.horizontal, 10)
+                                }
+                                BridgeTaskRowView(task: task)
                             }
-                            BridgeTaskRowView(task: task)
                         }
                     }
                     .perchGlassCard()
                     .padding(.horizontal, 9)
-                    .padding(.top, 10)
                 }
+                .padding(.top, 2)
             }
             .padding(.bottom, 12)
             .fixedSize(horizontal: false, vertical: true)
