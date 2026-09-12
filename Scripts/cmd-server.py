@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Perch bridge command daemon - whitelisted remote window ops.
 
-Verbs (GET, one call): raise-app, minimize-app, open-url, tile-pair, ping.
+Verbs (GET, one call): raise-app, minimize-app, open-url, tile-pair, display.
 Auth: 128-bit token in the URL path (/<token>/<verb>?args). 404 on bad token.
 Binds 127.0.0.1 only; exposure is via tailscale serve/funnel. No shell, no
 arbitrary AppleScript - fixed templates, args passed via osascript argv.
@@ -63,8 +63,9 @@ def v_minimize(q):
     app = valid_app((q.get("app") or [""])[0])
     if not app: return {"ok": False, "err": "bad app"}
     rc, _, err = osa(
-        'tell application "System Events" to tell process (item 1 of argv)\n'
-        'repeat with w in windows\ntry\nset value of attribute "AXMinimized" of w to true\nend try\nend repeat', app)
+        'tell application "System Events"\ntell process (item 1 of argv)\n'
+        'repeat with w in windows\ntry\nset value of attribute "AXMinimized" of w to true\nend try\nend repeat\n'
+        'end tell\nend tell', app)
     return {"ok": rc == 0, "err": err if rc else None}
 
 def v_open_url(q):
@@ -105,7 +106,17 @@ def v_tile(q):
         'end tell', left, right)
     return {"ok": True, "state": "APPLIED", "left": ax_geo(left), "right": ax_geo(right)}
 
-VERBS = {"raise-app": v_raise, "minimize-app": v_minimize, "open-url": v_open_url, "tile-pair": v_tile}
+def v_display(q):
+    text = (q.get("text") or [""])[0]
+    if not text or len(text) > 200 or any(c in text for c in "\n\r"):
+        return {"ok": False, "err": "bad text (1-200 chars, one line)"}
+    secs = (q.get("secs") or ["20"])[0]
+    if not re.match(r"^[0-9]{1,3}$", secs): secs = "20"
+    subprocess.Popen(["swift", os.path.expanduser("~/.instinct/bin/showtext.swift"), text, secs],
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return {"ok": True, "text": text, "secs": int(secs)}
+
+VERBS = {"raise-app": v_raise, "minimize-app": v_minimize, "open-url": v_open_url, "tile-pair": v_tile, "display": v_display}
 
 class H(BaseHTTPRequestHandler):
     def do_GET(self):
