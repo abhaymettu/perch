@@ -141,19 +141,11 @@ private struct MenuBarOwl: View {
             if !punch.isEmpty {
                 context.drawLayer { layer in
                     layer.clip(to: head)
-                    let eyeTint: Color = isDarkMenuBar ? .black.opacity(0.78) : .white.opacity(0.88)
+                    // Glassy white eyes and beak either way: bright glyphs
+                    // floating on the glass body, not holes punched in it.
+                    let eyeTint: Color = .white.opacity(0.92)
                     layer.fill(punch, with: .color(eyeTint))
                 }
-            }
-
-            // Specular edge: a bright rim along the top third only, where light
-            // would catch a curved surface.
-            context.drawLayer { layer in
-                layer.clip(to: Path(CGRect(
-                    x: faceRect.minX - scale, y: faceRect.minY - scale,
-                    width: faceRect.width + 2 * scale, height: faceRect.height * 0.42
-                )))
-                layer.stroke(head, with: .color(.white.opacity(0.85)), lineWidth: max(0.75, scale * 0.9))
             }
 
             // Inner glow beneath the rim, fading toward mid-face — depth without
