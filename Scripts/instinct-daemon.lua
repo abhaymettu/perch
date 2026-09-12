@@ -45,7 +45,7 @@ DECISIONS MADE HERE (beyond the spec, or where the spec left a choice)
       wake drain get {"buffered":true,...} and their result frames are pushed after the
       drain, in arrival order. Neither reply claims success.
   D4  A websocket session is "live" if it has said hello and sent any frame in the last
-      60 s (the client pings every 20 s, and hs.httpserver gives no disconnect event).
+      40 s, two missed 20 s client pings (hs.httpserver gives no disconnect event).
       The 5 s queue poll only runs when no session is live, per the spec.
   D5  Unobservable verbs. key.press and url.open leave no state to read back, so their
       readback is the identity of the app that received them (frontmost after the act,
@@ -130,7 +130,7 @@ local SILENCE      = 60     -- seconds of 404-everything after tripping
 local RESULT_CAP   = 8192   -- bytes of encoded result kept in the ring (D8)
 local RUN_CAP      = 55     -- seconds, `run`
 local SAY_CAP      = 40     -- seconds, `say` (two interp.py calls worst case)
-local WS_IDLE      = 60     -- seconds without a frame before a session is not live (D4)
+local WS_IDLE      = 40     -- seconds without a frame before a session is not live (D4: two missed 20 s pings)
 local WAKE_POLL    = 30     -- tailscale BackendState polls, 1 s apart
 local QUEUE_POLL   = 5
 

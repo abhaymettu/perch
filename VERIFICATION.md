@@ -205,3 +205,32 @@ empty after the queue test's cleanup slip above.
 - The funnel path (public HTTPS ingress, the ~170 ms RTT estimate from the
   transport doc): loopback only in this run; funnel cutover is a separate
   gated step.
+
+## Post-commit audit (2026-09-12 13:46, lane devdaemon re-run)
+
+The lane runner re-issued the build prompt after commit ddb502f. Audit of the
+committed build against the spec found two deviations, both fixed:
+
+- `~/.hammerspoon/init.lua` carried the require block twice (the install ran
+  twice). Deduped to the single appended line the spec allows; backup at
+  `init.lua.bak-20260912-dedupe`, original pre-install backup untouched.
+- `WS_IDLE` was 60 s; transport-decision.md says two missed 20 s pings (40 s)
+  marks the socket dead. Set to 40 s, D4 comment updated.
+
+Confirmed unchanged: hs.brightness kept (readback-verified above, so no
+DisplayServices ctypes path needed); "re-read on SIGHUP" is implemented as a
+pathwatcher on `~/.perch-bridge/` filtered to `*.token` (Hammerspoon cannot
+trap signals; the filter is the F4 self-exclusion, since the daemon's own
+log, ring and status files live in the same directory); `com.instinct.daemon`
+is a 60 s StartInterval preflight (hammerspoon-check, ax-preflight,
+daemon-health), so `state = not running` between runs is expected.
+
+Re-verified after `hs.reload()`:
+
+| check | result |
+|---|---|
+| GET /v1/health (device token) | ok, ax_trusted true, tokens device+shell, uptime 5 s |
+| brightness.get x3, wall ms | 10, 6, 8 |
+| volume.get | readback volume 0, muted false, ms 4 |
+| GET /v1/health (no auth) | 404 |
+| cmd-server 127.0.0.1:8788 | still answering (404 on /) |
