@@ -90,6 +90,11 @@ Result reports `tier`. If AX is not trusted, click/key/type return
   display -> display, frontmost -> app.frontmost, press-key -> key.press, type-text ->
   type.text, tile-pair -> two window.move), execute with readback; otherwise run
   `interp.py <text>` (non-dry) and return its result with `via:"interp"`.
+- `classify` {text, mode?}: mode is `hybrid` (default), `llm`, or `rules`. `hs.task
+  python3 Scripts/fastlane/classify.py --json --mode <mode> <text>`, 20 s cap. stdout
+  decoded as JSON; exit non-zero or undecodable -> `ok=false`. Otherwise `ok` mirrors
+  the classifier's own `ok`, `result` is the full parsed object, and `readback` is
+  `{intent, fallback, tier}`.
 
 ## Queue and wake
 

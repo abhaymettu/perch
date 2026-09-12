@@ -15,3 +15,6 @@ build/
 # Design sources — kept local, not shipped. Anchored: unanchored it also
 # swallowed Perch/Design/, which is source.
 /Design/
+
+# Python
+__pycache__/

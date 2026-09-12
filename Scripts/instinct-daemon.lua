@@ -7,6 +7,9 @@ PURPOSE
   queue drained on wake. Runs inside Hammerspoon.app so the TCC identity is
   Hammerspoon, never sshd/tmux. Supersedes Scripts/cmd-server.py (8788) for device
   verbs; cmd-server is left alone until the runner cuts over.
+  Orch verbs: run (shell token required), say (voice command via interp.py), classify
+  (fast-lane intent classification, shells to Scripts/fastlane/classify.py so the Mac
+  leg and the cloud leg run byte-identical classifier code).
 
 LOAD / RELOAD / STOP  (never hs.reload — his eventtap and hotkeys must survive)
   install:  ln -sf ~/Desktop/Playground/perch/Scripts/instinct-daemon.lua ~/.hammerspoon/instinct-daemon.lua
@@ -106,7 +109,7 @@ end
 -- 1. constants
 -- ===========================================================================
 
-local VERSION   = "1.0.0"
+local VERSION   = "1.1.0"
 local PORT      = 8399
 local HOME      = os.getenv("HOME")
 local BRIDGE    = HOME .. "/.perch-bridge"
@@ -118,6 +121,7 @@ local QUEUE_DIR = HOME .. "/Library/Mobile Documents/iCloud~md~obsidian/Document
 local DONE_DIR  = QUEUE_DIR .. "/done"
 
 local INTERP    = HOME .. "/code/local-workers/interp.py"
+local CLASSIFY  = HOME .. "/Desktop/Playground/perch/Scripts/fastlane/classify.py"
 local TAILSCALE = "/usr/local/bin/tailscale"
 local PYTHON    = "/usr/bin/python3"
 local ZSH       = "/bin/zsh"
@@ -130,6 +134,7 @@ local SILENCE      = 60     -- seconds of 404-everything after tripping
 local RESULT_CAP   = 8192   -- bytes of encoded result kept in the ring (D8)
 local RUN_CAP      = 55     -- seconds, `run`
 local SAY_CAP      = 40     -- seconds, `say` (two interp.py calls worst case)
+local CLASSIFY_CAP = 20     -- seconds, `classify`
 local WS_IDLE      = 40     -- seconds without a frame before a session is not live (D4: two missed 20 s pings)
 local WAKE_POLL    = 30     -- tailscale BackendState polls, 1 s apart
 local QUEUE_POLL   = 5
@@ -150,7 +155,7 @@ local KEYS = {
 for i = 1, 12 do KEYS["f" .. i] = 1 end
 local MODS = { cmd=1, command=1, ctrl=1, control=1, alt=1, option=1, shift=1, fn=1 }
 
-local ORCH = { run = true, say = true }
+local ORCH = { run = true, say = true, classify = true }
 
 -- ===========================================================================
 -- 2. small utils
@@ -1002,12 +1007,41 @@ local function doSay(job)
   end)
 end
 
+local function doClassify(job)
+  local text = job.op.text
+  if type(text) ~= "string" or #text < 1 or #text > 300 or text:find("%z") then
+    return orchDone(job, { ok = false, error = "bad text (1..300 bytes, no NUL)" })
+  end
+  local mode = job.op.mode
+  if mode == nil then mode = "hybrid" end
+  if mode ~= "hybrid" and mode ~= "llm" and mode ~= "rules" then
+    return orchDone(job, { ok = false, error = "mode must be hybrid, llm or rules" })
+  end
+  startTask(job, PYTHON, { CLASSIFY, "--json", "--mode", mode, text }, CLASSIFY_CAP,
+    function(code, out, err)
+      state.orchTask = nil
+      local parsed = decode(out)
+      if code ~= 0 or not parsed then
+        return orchDone(job, { ok = false,
+          error = string.format("classify exit %d: %s", code,
+                  ((err ~= "" and err or out) or ""):sub(-250):gsub("%s+", " ")) })
+      end
+      orchDone(job, {
+        ok = parsed.ok == true, result = parsed,
+        readback = { intent = parsed.intent, fallback = parsed.fallback, tier = parsed.tier },
+        error = (parsed.ok ~= true) and tostring(parsed.error or "classify reported failure") or nil,
+      })
+    end)
+end
+
 pumpOrch = function()
   if state.orchBusy or not state.running then return end
   local job = table.remove(state.orchQueue, 1)
   if not job then return end
   state.orchBusy, job.t0 = true, nowMs()
-  if job.op.action == "run" then doRun(job) else doSay(job) end
+  if job.op.action == "run" then doRun(job)
+  elseif job.op.action == "classify" then doClassify(job)
+  else doSay(job) end
 end
 
 -- returns the immediate acknowledgement frame (D3)
