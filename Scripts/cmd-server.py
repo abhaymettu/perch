@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Perch bridge command daemon - whitelisted remote window ops.
 
-Verbs (GET, one call): raise-app, minimize-app, open-url, tile-pair, display, frontmost, fullscreen-app, open-file.
+Verbs (GET, one call): raise-app, minimize-app, open-url, tile-pair, display, frontmost, fullscreen-app, open-file, run (arbitrary shell - his call 9/12).
 Auth: 128-bit token in the URL path (/<token>/<verb>?args). 404 on bad token.
 Binds 127.0.0.1 only; exposure is via tailscale serve/funnel. No shell, no
 arbitrary AppleScript - fixed templates, args passed via osascript argv.
@@ -148,8 +148,21 @@ def v_open_file(q):
     rc, _, err = run(["open", rp])
     return {"ok": rc == 0, "err": err if rc else None}
 
+def v_run(q):
+    # his call, 2026-09-12 1:06am: no verb allowlist - arbitrary shell as him.
+    # boundary stays: token in path + tailnet-only exposure. curated verbs remain as fast paths.
+    cmd = (q.get("cmd") or [""])[0]
+    if not cmd or "\x00" in cmd or len(cmd) > 4000:
+        return {"ok": False, "err": "bad cmd"}
+    try:
+        r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=55)
+        return {"ok": r.returncode == 0, "rc": r.returncode,
+                "out": (r.stdout or "")[-4000:], "err": (r.stderr or "")[-1500:]}
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "err": "timeout (55s cap)"}
+
 VERBS = {"raise-app": v_raise, "minimize-app": v_minimize, "open-url": v_open_url, "tile-pair": v_tile, "display": v_display,
-         "frontmost": v_frontmost, "fullscreen-app": v_fullscreen, "open-file": v_open_file}
+         "frontmost": v_frontmost, "fullscreen-app": v_fullscreen, "open-file": v_open_file, "run": v_run}
 
 class H(BaseHTTPRequestHandler):
     def do_GET(self):
