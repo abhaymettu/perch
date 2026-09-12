@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Perch bridge command daemon - whitelisted remote window ops.
 
-Verbs (GET, one call): raise-app, minimize-app, open-url, tile-pair, display.
+Verbs (GET, one call): raise-app, minimize-app, open-url, tile-pair, display, frontmost, fullscreen-app, open-file.
 Auth: 128-bit token in the URL path (/<token>/<verb>?args). 404 on bad token.
 Binds 127.0.0.1 only; exposure is via tailscale serve/funnel. No shell, no
 arbitrary AppleScript - fixed templates, args passed via osascript argv.
@@ -116,7 +116,40 @@ def v_display(q):
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return {"ok": True, "text": text, "secs": int(secs)}
 
-VERBS = {"raise-app": v_raise, "minimize-app": v_minimize, "open-url": v_open_url, "tile-pair": v_tile, "display": v_display}
+def v_frontmost(q):
+    return {"ok": True, "frontmost": frontmost()}
+
+def v_fullscreen(q):
+    app = valid_app((q.get("app") or [""])[0])
+    if not app: return {"ok": False, "err": "bad app"}
+    rc, _, err = osa(
+        'tell application "System Events"\ntell process (item 1 of argv)\n'
+        'set value of attribute "AXFullScreen" of window 1 to true\nend tell\nend tell', app)
+    if rc == 0: return {"ok": True, "app": app, "via": "ax"}
+    rc2, _, err2 = osa(
+        'tell application "System Events"\ntell process (item 1 of argv)\n'
+        'click menu item "Toggle Full Screen" of menu 1 of menu bar item "View" of menu bar 1\n'
+        'end tell\nend tell', app)
+    if rc2 == 0: return {"ok": True, "app": app, "via": "menu"}
+    rc3, _, err3 = osa(
+        'tell application "System Events"\ntell process (item 1 of argv)\n'
+        'click menu item "Enter Full Screen" of menu 1 of menu bar item "View" of menu bar 1\n'
+        'end tell\nend tell', app)
+    return {"ok": rc3 == 0, "app": app, "via": "menu2" if rc3 == 0 else None,
+            "err": (err or "")[:120] + " | " + (err2 or "")[:120] + " | " + (err3 or "")[:120] if rc3 else None}
+
+HOME_PREFIX = os.path.realpath(os.path.expanduser("~")) + "/"
+def v_open_file(q):
+    p = (q.get("path") or [""])[0]
+    if not p or "\x00" in p: return {"ok": False, "err": "bad path"}
+    rp = os.path.realpath(os.path.expanduser(p))
+    if not rp.startswith(HOME_PREFIX): return {"ok": False, "err": "path outside home"}
+    if not os.path.exists(rp): return {"ok": False, "err": "not found"}
+    rc, _, err = run(["open", rp])
+    return {"ok": rc == 0, "err": err if rc else None}
+
+VERBS = {"raise-app": v_raise, "minimize-app": v_minimize, "open-url": v_open_url, "tile-pair": v_tile, "display": v_display,
+         "frontmost": v_frontmost, "fullscreen-app": v_fullscreen, "open-file": v_open_file}
 
 class H(BaseHTTPRequestHandler):
     def do_GET(self):
