@@ -161,8 +161,19 @@ def v_run(q):
     except subprocess.TimeoutExpired:
         return {"ok": False, "err": "timeout (55s cap)"}
 
+def v_say(q):
+    # fast lane: short command -> gemma interpreter -> whitelisted action (local-workers/interp.py)
+    text = (q.get("text") or [""])[0]
+    if not text or len(text) > 300 or "\x00" in text:
+        return {"ok": False, "err": "bad text"}
+    rc, out, err = run(["python3", "/Users/abhay/code/local-workers/interp.py", text], timeout=35)
+    try:
+        return json.loads(out)
+    except Exception:
+        return {"ok": False, "err": ((err or "") + (out or ""))[:150]}
+
 VERBS = {"raise-app": v_raise, "minimize-app": v_minimize, "open-url": v_open_url, "tile-pair": v_tile, "display": v_display,
-         "frontmost": v_frontmost, "fullscreen-app": v_fullscreen, "open-file": v_open_file, "run": v_run}
+         "frontmost": v_frontmost, "fullscreen-app": v_fullscreen, "open-file": v_open_file, "run": v_run, "say": v_say}
 
 class H(BaseHTTPRequestHandler):
     def do_GET(self):
