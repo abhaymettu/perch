@@ -27,9 +27,26 @@ final class AppState {
 
     var simulatorRestartStates: [String: RestartState] = [:]
 
-    private static let pollingInterval: TimeInterval = 3.0
+    /// Three seconds while you are looking at the panel. Closed, the menu bar
+    /// only shows the owl's mood (awake, red), which nothing needs faster than
+    /// every half minute; app launches and quits, wake, and opening the panel
+    /// refresh straight away on top of that.
+    private static let openInterval: TimeInterval = 3
+    private static let closedInterval: TimeInterval = 30
 
     private var timer: Timer?
+    @ObservationIgnored private var workspaceObservers: [NSObjectProtocol] = []
+    @ObservationIgnored private var pendingRefresh: Task<Void, Never>?
+
+    /// Set by MenuBarController as the panel shows and hides.
+    @ObservationIgnored var isPanelOpen = false {
+        didSet {
+            guard isPanelOpen != oldValue else { return }
+            schedulePolling()
+            if isPanelOpen { Task { await refresh() } }
+        }
+    }
+
     private var killedPIDs: Set<Int> = []
 
     // Keyed by the killed PID, not the port: a port that never falls silent
@@ -82,6 +99,7 @@ final class AppState {
 
     deinit {
         timer?.invalidate()
+        workspaceObservers.forEach(NSWorkspace.shared.notificationCenter.removeObserver)
     }
 
     #if DEBUG
@@ -106,10 +124,43 @@ final class AppState {
 
     func startPolling() {
         Task { await refresh() }
+        schedulePolling()
 
-        timer = Timer.scheduledTimer(withTimeInterval: Self.pollingInterval, repeats: true) { [weak self] _ in
+        // A Simulator, a dev server's terminal, a Claude desktop window: most
+        // of what Perch watches arrives or leaves alongside an app. Coalesced,
+        // because a login or a quit-all fires a burst of these.
+        let center = NSWorkspace.shared.notificationCenter
+        let names: [Notification.Name] = [
+            NSWorkspace.didLaunchApplicationNotification,
+            NSWorkspace.didTerminateApplicationNotification,
+            NSWorkspace.didWakeNotification
+        ]
+        workspaceObservers = names.map { name in
+            center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                self?.refreshSoon()
+            }
+        }
+    }
+
+    private func schedulePolling() {
+        timer?.invalidate()
+        let interval = isPanelOpen ? Self.openInterval : Self.closedInterval
+        let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { await self.refresh() }
+        }
+        // Lets the system batch this wakeup with others instead of firing alone.
+        timer.tolerance = interval / 5
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+    }
+
+    private func refreshSoon() {
+        guard pendingRefresh == nil else { return }
+        pendingRefresh = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            self?.pendingRefresh = nil
+            await self?.refresh()
         }
     }
 

@@ -9,20 +9,34 @@ struct ResolvedProcess {
 enum ProcessResolver {
     // MARK: - Process Details
 
+    /// Same argv `ps -o args=` prints (both read KERN_PROCARGS2), without
+    /// spawning `ps` and `lsof` for every server on every poll.
     static func resolve(pid: Int) async -> ResolvedProcess? {
-        async let argsResult = Shell.run("/bin/ps", arguments: ["-p", "\(pid)", "-o", "args="])
-        async let cwdResult = Shell.run("/usr/sbin/lsof", arguments: ["-d", "cwd", "-a", "-p", "\(pid)", "-Fn"])
-
-        guard let args = await argsResult?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !args.isEmpty else { return nil }
-
-        let cwd = await parseCWD(cwdResult ?? "")
+        let args = launchInfo(pid: pid).argv.joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !args.isEmpty else { return nil }
 
         return ResolvedProcess(
             pid: pid,
             arguments: args,
-            workingDirectory: cwd
+            workingDirectory: await workingDirectory(pid: pid)
         )
+    }
+
+    /// Whether any process's executable has this exact file name.
+    static func isRunning(named name: String) -> Bool {
+        let count = proc_listallpids(nil, 0)
+        guard count > 0 else { return false }
+
+        var pids = [pid_t](repeating: 0, count: Int(count) + 32)
+        let filled = proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size))
+        // proc_name returns nothing at all into a buffer under 2 * MAXCOMLEN.
+        var buffer = [CChar](repeating: 0, count: 2 * Int(MAXCOMLEN) + 1)
+
+        return pids.prefix(Int(max(filled, 0))).contains { pid in
+            guard pid > 0, proc_name(pid, &buffer, UInt32(buffer.count)) > 0 else { return false }
+            return String(cString: buffer) == name
+        }
     }
 
     // MARK: - Real argv
@@ -150,12 +164,17 @@ enum ProcessResolver {
         return Date(timeIntervalSince1970: Double(started.tv_sec) + Double(started.tv_usec) / 1_000_000)
     }
 
+    /// libproc, not `lsof -d cwd`: this runs once per Claude session per poll,
+    /// and with a dozen sessions open the lsof children were most of Perch's
+    /// cost. Empty when the process is gone or not ours, as lsof was.
     static func workingDirectory(pid: Int) async -> String {
-        let output = await Shell.run(
-            "/usr/sbin/lsof",
-            arguments: ["-d", "cwd", "-a", "-p", "\(pid)", "-Fn"]
-        )
-        return parseCWD(output ?? "")
+        var info = proc_vnodepathinfo()
+        let size = Int32(MemoryLayout<proc_vnodepathinfo>.size)
+        guard proc_pidinfo(Int32(pid), PROC_PIDVNODEPATHINFO, 0, &info, size) == size else { return "" }
+
+        return withUnsafeBytes(of: info.pvi_cdir.vip_path) { raw in
+            String(decoding: raw.prefix { $0 != 0 }, as: UTF8.self)
+        }
     }
 
     // MARK: - Framework Detection
@@ -209,18 +228,5 @@ enum ProcessResolver {
         name.split(separator: "-")
             .map { $0.prefix(1).uppercased() + $0.dropFirst() }
             .joined(separator: " ")
-    }
-}
-
-// MARK: - Private Parsing
-
-extension ProcessResolver {
-    static func parseCWD(_ output: String) -> String {
-        for line in output.split(separator: "\n") {
-            if line.hasPrefix("n/") {
-                return String(line.dropFirst())
-            }
-        }
-        return ""
     }
 }

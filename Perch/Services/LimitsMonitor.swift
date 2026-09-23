@@ -87,6 +87,7 @@ final class LimitsMonitor {
         timer = Timer.scheduledTimer(withTimeInterval: Self.interval, repeats: true) { [weak self] _ in
             Task { await self?.refresh() }
         }
+        timer?.tolerance = 30
     }
 
     deinit { timer?.invalidate() }

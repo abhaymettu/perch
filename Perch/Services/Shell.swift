@@ -31,11 +31,18 @@ enum Shell {
                 return
             }
 
+            // Off the Swift concurrency pool: a blocking read there parks one of
+            // its few threads per child, and `waitUntilExit` spins a run loop
+            // while it waits (the diet profile had every cooperative thread
+            // sitting in it). A plain GCD thread just sleeps in read().
+            //
             // Drain first, then reap. Waiting first deadlocks the moment output
             // fills the 64K pipe buffer — `ps -axo args=` clears that on its own.
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            process.waitUntilExit()
-            continuation.resume(returning: String(data: data, encoding: .utf8))
+            // Foundation reaps the child itself; EOF already means it is done.
+            DispatchQueue.global(qos: .utility).async {
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                continuation.resume(returning: String(data: data, encoding: .utf8))
+            }
         }
     }
 

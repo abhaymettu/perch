@@ -2,6 +2,11 @@ import Foundation
 
 enum SimulatorMonitor {
     static func scan() async -> [Simulator] {
+        // Every booted simulator runs its own launchd_sim, Simulator.app or
+        // not. Checking for one is a syscall; `xcrun simctl` is two processes
+        // and a CoreSimulator spin-up, every poll, to learn "none".
+        guard ProcessResolver.isRunning(named: "launchd_sim") else { return [] }
+
         guard let output = await Shell.run(
             "/usr/bin/xcrun",
             arguments: ["simctl", "list", "devices", "booted", "--json"]

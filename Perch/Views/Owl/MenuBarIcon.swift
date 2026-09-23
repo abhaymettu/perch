@@ -17,10 +17,24 @@ enum MenuBarIcon {
         // blurring the desktop, not the image.
         let view = MenuBarOwl(size: iconSize, pose: pose, alert: alert, isDarkMenuBar: isDarkMenuBar)
 
+        // Drawn into a 44×44 bitmap of our own rather than read back through
+        // `renderer.cgImage`, which brings up a GPU renderer per call (a
+        // ~100 MB transient) and hands back an image far heavier than its
+        // pixels. This is a few KB and stays on the CPU.
+        let scale: CGFloat = 2
+        let pixels = Int(iconSize * scale)
         let renderer = ImageRenderer(content: view)
-        renderer.scale = 2.0
+        guard let context = CGContext(
+            data: nil, width: pixels, height: pixels, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
+            return NSImage(systemSymbolName: "network", accessibilityDescription: "Perch")!
+        }
+        context.scaleBy(x: scale, y: scale)
+        renderer.render { _, draw in draw(context) }
 
-        guard let cgImage = renderer.cgImage else {
+        guard let cgImage = context.makeImage() else {
             return NSImage(systemSymbolName: "network", accessibilityDescription: "Perch")!
         }
 
