@@ -1,0 +1,23 @@
+#!/usr/bin/env python3
+"""verify-perch-diet: gate for the Perch lightweight lane. Last line is one JSON object."""
+import hashlib, json, os, re, subprocess, sys
+R = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True).stdout.strip() or os.getcwd()
+checks = []
+def add(n, ok, d=""): checks.append({"name": n, "pass": bool(ok), "detail": d})
+rep = os.path.join(R, "docs", "PERCH-DIET.md")
+txt = open(rep).read() if os.path.exists(rep) else ""
+add("docs/PERCH-DIET.md exists", bool(txt))
+low = txt.lower()
+for w in ("before", "after", "idle cpu", "memory", "energy", "launch", "threads"):
+    add("report covers " + w, w in low)
+add("report has numbers", len(re.findall(r"\d+(\.\d+)?\s*(%|mb|ms|s\b)", low)) >= 8)
+p = subprocess.run("xcodebuild -project Perch.xcodeproj -scheme Perch -configuration Release -derivedDataPath /tmp/perch-verify-dd build CODE_SIGNING_ALLOWED=NO -quiet",
+                   shell=True, cwd=R, capture_output=True, text=True, timeout=1200)
+add("release build succeeds", p.returncode == 0, (p.stdout + p.stderr)[-300:])
+p = subprocess.run(["git", "status", "--porcelain"], cwd=R, capture_output=True, text=True)
+add("clean tree", p.returncode == 0 and not p.stdout.strip(), p.stdout.strip()[:200])
+head = os.environ.get("ORCA_GATE_HEAD") or subprocess.run(["git", "rev-parse", "HEAD"], cwd=R, capture_output=True, text=True).stdout.strip()
+art = os.environ.get("ORCA_GATE_ARTIFACT_SHA256") or (hashlib.sha256(txt.encode()).hexdigest() if txt else "")
+ok = all(c["pass"] for c in checks)
+print(json.dumps({"verifier": "verify-perch-diet", "pass": ok, "repo": os.environ.get("ORCA_GATE_REPO") or R, "head": head, "artifact_sha256": str(art), "checks": checks}))
+sys.exit(0 if ok else 1)
