@@ -28,6 +28,9 @@ struct OwlPose {
 /// inside it. Every move starts and ends at rest, so they can be played back to
 /// back without a transition between them.
 struct OwlMove {
+    /// Names the variant. Frame n of a variant is always the same pose, so the
+    /// animator renders each variant once and replays the images after that.
+    let key: String
     let duration: TimeInterval
     let pose: (TimeInterval) -> OwlPose
 }
@@ -62,7 +65,7 @@ enum OwlMotion {
         let gap: TimeInterval = 0.06
         let duration = double ? blinkCycle * 2 + gap : blinkCycle
 
-        return OwlMove(duration: duration) { elapsed in
+        return OwlMove(key: double ? "blink2" : "blink", duration: duration) { elapsed in
             let phase = elapsed > blinkCycle + gap ? elapsed - blinkCycle - gap : elapsed
             return OwlPose(eyeOpenness: lid(at: phase))
         }
@@ -93,7 +96,7 @@ enum OwlMotion {
         // far eye vanishes and a one-eyed owl reads as a bug, not a glance.
         let angle: CGFloat = 0.78
 
-        return OwlMove(duration: swing * 2 + hold) { elapsed in
+        return OwlMove(key: "peek\(direction)", duration: swing * 2 + hold) { elapsed in
             let turn: CGFloat
             if elapsed < swing {
                 turn = angle * easeOut(CGFloat(elapsed / swing))
@@ -116,7 +119,7 @@ enum OwlMotion {
     static func bob() -> OwlMove {
         let duration: TimeInterval = 1.1
 
-        return OwlMove(duration: duration) { elapsed in
+        return OwlMove(key: "bob", duration: duration) { elapsed in
             let sway = sin(CGFloat(elapsed / duration) * 2 * .pi)
             return OwlPose(
                 turn: -sway * 0.22,
@@ -138,7 +141,7 @@ enum OwlMotion {
         let hold: TimeInterval = 0.1
         let half = sweep / 2
 
-        return OwlMove(duration: sweep + hold) { elapsed in
+        return OwlMove(key: "swivel\(direction)", duration: sweep + hold) { elapsed in
             // Cubic rather than quadratic on the way round. Roughly a third of
             // the sweep is angle at which nothing is visible, and easing that
             // hard means the owl crosses it fast — the blank is a beat, not a
@@ -166,7 +169,7 @@ enum OwlMotion {
         let duration: TimeInterval = 0.5
         let wide = OwlGeometry.eyeOpenness(for: .wide)
 
-        return OwlMove(duration: duration) { elapsed in
+        return OwlMove(key: "startle", duration: duration) { elapsed in
             let progress = CGFloat(elapsed / duration)
             // One decaying arc, not a loop: up, over, down, done.
             let jump = sin(progress * .pi) * (1 - progress)

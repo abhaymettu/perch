@@ -37,6 +37,16 @@ struct EmptyStateView: View {
             drifting = false
             DispatchQueue.main.async { startDrifting() }
         }
+        // And every close ends it. A repeatForever keeps the render loop
+        // ticking on an ordered-out window that nobody can see.
+        .onReceive(NotificationCenter.default.publisher(for: .perchPanelDidClose)) { _ in
+            var still = Transaction(animation: nil)
+            still.disablesAnimations = true
+            withTransaction(still) {
+                drifting = false
+                floatOffset = 0
+            }
+        }
     }
 
     private func startDrifting() {
