@@ -45,7 +45,8 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         Task { await Shell.selfCheck() }
 
         if PreviewHarness.isEnabled {
-            NSApp.setActivationPolicy(.regular)
+            // A shot never shows a Dock icon or a window; see PreviewHarness.
+            if ProcessInfo.processInfo.environment["PERCH_UI_SHOT"] == nil { NSApp.setActivationPolicy(.regular) }
             PreviewHarness.present()
             return
         }

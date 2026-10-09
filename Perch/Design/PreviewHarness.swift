@@ -9,11 +9,12 @@ struct PreviewScenario {
     var limits: [UsageLimit] = []
     var error: String?
     var stale = false
+    var accounts: [AccountUsage] = []
 }
 
 extension PreviewScenario {
 
-    static let all: [PreviewScenario] = [normal, hot, stale, unavailable]
+    static let all: [PreviewScenario] = [normal, accounts, hot, stale, unavailable]
 
     private static func resets(in hours: Double) -> Date {
         Date().addingTimeInterval(hours * 3600)
@@ -32,11 +33,33 @@ extension PreviewScenario {
         UsageLimit(kind: "weekly_scoped", percent: 64, severity: "normal", resetsAt: resets(in: 30), modelName: "Fable"),
     ])
 
+    /// The 2026-10-09 shape: acct2 signed in and driving the menu bar, acct1
+    /// signed out on this Mac with its last numbers, its 5h window already
+    /// reset, and a third account whose fetch failed (cached, stale).
+    static let accounts = PreviewScenario(name: "accounts", limits: normal.limits, accounts: [
+        AccountUsage(id: "acct2", email: "abhaynihal200@gmail.com", status: "live", reason: nil, windows: [
+            UsageLimit(kind: "session", percent: 8, severity: "normal", resetsAt: resets(in: 4.3), modelName: nil),
+            UsageLimit(kind: "weekly_all", percent: 2, severity: "normal", resetsAt: resets(in: 34.3), modelName: nil),
+            UsageLimit(kind: "weekly_scoped", percent: 1, severity: "normal", resetsAt: resets(in: 34.3), modelName: "Fable"),
+        ], observedAt: Date().addingTimeInterval(-90)),
+        AccountUsage(id: "acct3", email: "lab.research@example.com", status: "cached", reason: "keychain item unreadable", windows: [
+            UsageLimit(kind: "session", percent: 41, severity: "normal", resetsAt: resets(in: 1.5), modelName: nil),
+            UsageLimit(kind: "weekly_all", percent: 63, severity: "normal", resetsAt: resets(in: 50), modelName: nil),
+        ], observedAt: Date().addingTimeInterval(-25 * 60)),
+        AccountUsage(id: "acct1", email: "abhaynihal2004@gmail.com", status: "removed-needs-reauth",
+                     reason: "Signed out of ~/.claude 2026-10-09 10:05 CDT; not restored", windows: [
+            UsageLimit(kind: "session", percent: 4, severity: "normal", resetsAt: resets(in: -0.02), modelName: nil),
+            UsageLimit(kind: "weekly_all", percent: 99, severity: "normal", resetsAt: resets(in: 7.3), modelName: nil),
+        ], observedAt: Date().addingTimeInterval(-40 * 60)),
+    ])
+
     static let stale = PreviewScenario(name: "stale", limits: normal.limits, error: "Usage API returned 429", stale: true)
 
     static let unavailable = PreviewScenario(name: "unavailable", error: "Session expired — run /login")
 
-    var monitor: LimitsMonitor { LimitsMonitor(frozen: limits, error: error, stale: stale) }
+    var monitor: LimitsMonitor {
+        LimitsMonitor(frozen: limits, error: error, stale: stale, accounts: accounts, account: accounts.isEmpty ? nil : "acct2")
+    }
 }
 
 // MARK: - Window
@@ -103,7 +126,7 @@ enum PreviewHarness {
         let gap: CGFloat = 26
         let scenarios = PreviewScenario.all
         let width = (UsagePopup.panelWidth + gap) * CGFloat(scenarios.count) + gap
-        let height: CGFloat = 480
+        let height: CGFloat = 720
 
         let content = VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .top, spacing: gap) {
@@ -138,10 +161,14 @@ enum PreviewHarness {
         )
         window.title = "Perch — UI preview"
         window.contentView = NSHostingView(rootView: content)
-        window.center()
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
         Self.window = window
+        // A shot is drawn from the window's own backing store, so it never needs
+        // to be on screen: no ordering in, no activation, nothing fronted.
+        if ProcessInfo.processInfo.environment["PERCH_UI_SHOT"] == nil {
+            window.center()
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        }
 
         if let path = ProcessInfo.processInfo.environment["PERCH_UI_SHOT"] {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
