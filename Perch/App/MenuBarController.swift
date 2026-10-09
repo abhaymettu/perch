@@ -51,6 +51,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         Task { await Shell.selfCheck() }
 
         if PreviewHarness.isEnabled {
+            NSApp.setActivationPolicy(.regular)
             PreviewHarness.present()
             return
         }
