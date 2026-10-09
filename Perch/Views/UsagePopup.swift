@@ -13,7 +13,14 @@ struct UsagePopup: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if monitor.limits.isEmpty {
+            if monitor.accounts.count > 1 {
+                // Several accounts: one card each, replacing the single strip
+                // that would only repeat the menu bar account.
+                AccountCards(monitor: monitor)
+                    .padding(.horizontal, 9)
+                    .padding(.top, 9)
+                    .padding(.bottom, 10)
+            } else if monitor.limits.isEmpty {
                 placeholder
             } else {
                 UsageStrip(monitor: monitor)
