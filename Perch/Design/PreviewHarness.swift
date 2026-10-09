@@ -1,262 +1,131 @@
 #if DEBUG
 import SwiftUI
 
-/// A frozen panel-full of state. `PERCH_UI_PREVIEW=1` renders one window with
-/// every scenario side by side, so a design round is one screenshot and two
-/// rounds are diffable. The live panel is a poor design surface: it needs Ice
-/// quit, it is invisible to Accessibility, and its contents change under you.
+/// A frozen row of states. `PERCH_UI_PREVIEW=1` renders one window with each
+/// scenario as a column: the menu bar item on a dark and a light bar, then the
+/// popup, so a design round is one screenshot. No poll, no network.
 struct PreviewScenario {
     let name: String
-    var sessions: [ClaudeSession] = []
-    var servers: [DevServer] = []
-    var simulators: [Simulator] = []
-    var agents: [LaunchAgent] = []
-    var cronJobs: [CronJob] = []
     var limits: [UsageLimit] = []
-
-    /// Settings and About get a column each, otherwise they are only ever seen
-    /// by clicking through the live panel — which is how they stayed on the
-    /// pre-redesign look for three rounds.
-    var page: MenuBarView.Page = .main
-
-    /// Six panels side by side are wider than the screen and two rows are
-    /// taller than it, so a run renders one set: `main` or `pages`.
-    var set: String = "main"
-
-    /// Which screen of the `welcome` set to render. Ignored elsewhere.
-    var step: Int = 0
-
-    /// Port (not pid) -> restart failure. The only way to see `FailureBox`, which
-    /// otherwise renders solely when a real relaunch dies.
-    var restartFailures: [Int: String] = [:]
-
-    /// Live tmux/herdr tasks, or empty for a Mac with no bridge writer
-    /// running.
-    var bridgeTasks: [BridgeTask] = []
-
-    /// Which perch the roost opens. One section is open at a time, so a
-    /// scenario that exists to exercise a section has to name it.
-    var open: String = "CLAUDE"
+    var error: String?
+    var stale = false
 }
-
-// MARK: - Scenarios
 
 extension PreviewScenario {
 
-    static let all: [PreviewScenario] = [
-        busy, hot, quiet, empty, settings, about, welcome, welcomeAccess
-    ]
-
-    private static func ago(_ hours: Double) -> Date {
-        Date().addingTimeInterval(-hours * 3600)
-    }
+    static let all: [PreviewScenario] = [normal, hot, stale, unavailable]
 
     private static func resets(in hours: Double) -> Date {
         Date().addingTimeInterval(hours * 3600)
     }
 
-    /// A normal working afternoon — the state the panel is in 95% of the time,
-    /// so it is the one that has to be beautiful rather than merely legible.
-    static let busy = PreviewScenario(
-        name: "busy",
-        sessions: [
-            ClaudeSession(id: "lane:api", pid: 4102, kind: .remoteControl, name: "api",
-                          workingDirectory: "/Users/dev", startedAt: ago(38),
-                          childCount: 1, activeSince: ago(0.62)),
-            ClaudeSession(id: "lane:docs", pid: 4110, kind: .remoteControl, name: "docs",
-                          workingDirectory: "/Users/dev/docs", startedAt: ago(38),
-                          childCount: 0, activeSince: nil),
-            ClaudeSession(id: "lane:infra", pid: 4118, kind: .remoteControl, name: "infra",
-                          workingDirectory: "/Users/dev/infra", startedAt: ago(38),
-                          childCount: 1, activeSince: ago(2.4)),
-            ClaudeSession(id: "interactive:9821", pid: 9821, kind: .interactive, name: "Perch",
-                          workingDirectory: "/Users/dev/code/perch",
-                          startedAt: ago(1.3), childCount: 3, activeSince: nil),
-            ClaudeSession(id: "headless:7734", pid: 7734, kind: .headless, name: "Nightly Digest",
-                          workingDirectory: "/Users/dev/code",
-                          startedAt: ago(2.1), childCount: 0, activeSince: nil)
-        ],
-        servers: [
-            DevServer(pid: 3301, port: 3000, command: "next dev", framework: .nextjs,
-                      projectName: "Storefront", projectPath: "/Users/dev/storefront"),
-            DevServer(pid: 3388, port: 5173, command: "vite", framework: .vite,
-                      projectName: "Dashboard", projectPath: "/Users/dev/dashboard")
-        ],
-        simulators: [
-            Simulator(udid: "A1", name: "iPhone 17 Pro", runtime: "iOS 26.0",
-                      runningApp: .init(bundleID: "com.example.fieldkit", displayName: "FieldKit"))
-        ],
-        agents: [
-            LaunchAgent(label: "com.example.tunnel", pid: 812, lastExitStatus: 0,
-                        schedule: nil, plistPath: "/Users/dev/Library/LaunchAgents/com.example.tunnel.plist"),
-            LaunchAgent(label: "com.example.backup", pid: nil, lastExitStatus: 0,
-                        schedule: "every 30 min", plistPath: "/Users/dev/Library/LaunchAgents/bb.plist"),
-            LaunchAgent(label: "com.example.fieldkit-sweep", pid: nil, lastExitStatus: 0,
-                        schedule: "daily 09:00", plistPath: "/Users/dev/Library/LaunchAgents/ns.plist")
-        ],
-        limits: [
-            UsageLimit(kind: "session", percent: 7, severity: "normal",
-                       resetsAt: resets(in: 2.4), modelName: nil),
-            UsageLimit(kind: "weekly_all", percent: 45, severity: "normal",
-                       resetsAt: resets(in: 71), modelName: nil),
-            UsageLimit(kind: "weekly_scoped", percent: 41, severity: "normal",
-                       resetsAt: resets(in: 71), modelName: "Fable")
-        ],
-        bridgeTasks: [
-            BridgeTask(id: "w1K:t1", workspaceId: "w1K", workspaceLabel: "Kalshi",
-                       tabLabel: "reflex-worker", statusText: "✳ Reflex worker Phase A implementation",
-                       updatedAt: Date().timeIntervalSince1970 - 4),
-            BridgeTask(id: "w1M:t1", workspaceId: "w1M", workspaceLabel: "Perch",
-                       tabLabel: "owl-glass", statusText: "✳ Owl icon glass texture",
-                       updatedAt: Date().timeIntervalSince1970 - 11)
-        ]
-    )
+    /// The numbers the live endpoint returned on 2026-10-06 19:30 CDT.
+    static let normal = PreviewScenario(name: "normal", limits: [
+        UsageLimit(kind: "session", percent: 13, severity: "normal", resetsAt: resets(in: 2.0), modelName: nil),
+        UsageLimit(kind: "weekly_all", percent: 37, severity: "normal", resetsAt: resets(in: 70), modelName: nil),
+        UsageLimit(kind: "weekly_scoped", percent: 6, severity: "normal", resetsAt: resets(in: 70), modelName: "Fable"),
+    ])
 
-    /// The colour paths real data never reaches: a critical window, a warning
-    /// window, a failed daemon, and a headless session past its stale mark.
-    static let hot = PreviewScenario(
-        name: "hot",
-        sessions: [
-            ClaudeSession(id: "headless:7734", pid: 7734, kind: .headless, name: "Nightly Digest",
-                          workingDirectory: "/Users/dev/code",
-                          startedAt: ago(17.2), childCount: 0, activeSince: nil),
-            ClaudeSession(id: "lane:data", pid: 4130, kind: .remoteControl, name: "data",
-                          workingDirectory: "/Users/dev/data", startedAt: ago(40),
-                          childCount: 1, activeSince: ago(14.6))
-        ],
-        servers: [
-            DevServer(pid: 3301, port: 3000, command: "next dev", framework: .nextjs,
-                      projectName: "Storefront", projectPath: "/Users/dev/storefront")
-        ],
-        agents: [
-            LaunchAgent(label: "com.example.tunnel", pid: nil, lastExitStatus: 78,
-                        schedule: nil, plistPath: "/Users/dev/Library/LaunchAgents/com.example.tunnel.plist"),
-            LaunchAgent(label: "com.example.backup", pid: 903, lastExitStatus: 0,
-                        schedule: nil, plistPath: "/Users/dev/Library/LaunchAgents/bb.plist")
-        ],
-        cronJobs: [
-            CronJob(schedule: "*/15 * * * *", command: "~/bin/backup")
-        ],
-        limits: [
-            UsageLimit(kind: "session", percent: 94, severity: "critical",
-                       resetsAt: resets(in: 0.7), modelName: nil),
-            UsageLimit(kind: "weekly_all", percent: 81, severity: "warning",
-                       resetsAt: resets(in: 26), modelName: nil),
-            UsageLimit(kind: "weekly_scoped", percent: 88, severity: "warning",
-                       resetsAt: resets(in: 26), modelName: "Opus")
-        ],
-        restartFailures: [
-            3000: "Error: listen EADDRINUSE: address already in use :::3000\n    at Server.setupListenHandle [as _listen2] (node:net:1817:16)"
-        ],
-        bridgeTasks: [
-            BridgeTask(id: "w1J:t1", workspaceId: "w1J", workspaceLabel: "JOB 17 cms-mcp",
-                       tabLabel: "cms-mcp", statusText: nil,
-                       updatedAt: Date().timeIntervalSince1970 - 412)
-        ],
-        open: "DEV SERVERS"
-    )
+    static let hot = PreviewScenario(name: "hot", limits: [
+        UsageLimit(kind: "session", percent: 96, severity: "critical", resetsAt: resets(in: 0.6), modelName: nil),
+        UsageLimit(kind: "weekly_all", percent: 81, severity: "warning", resetsAt: resets(in: 30), modelName: nil),
+        UsageLimit(kind: "weekly_scoped", percent: 64, severity: "normal", resetsAt: resets(in: 30), modelName: "Fable"),
+    ])
 
-    /// Two rows and a usage strip. The panel is a fixed 640pt tall, so this is
-    /// where wasted vertical space is most obvious.
-    static let quiet = PreviewScenario(
-        name: "quiet",
-        sessions: [
-            ClaudeSession(id: "interactive:9821", pid: 9821, kind: .interactive, name: "Scratch",
-                          workingDirectory: "/Users/dev/scratch",
-                          startedAt: ago(0.4), childCount: 0, activeSince: nil)
-        ],
-        agents: [
-            LaunchAgent(label: "com.example.tunnel", pid: 812, lastExitStatus: 0,
-                        schedule: nil, plistPath: "/Users/dev/Library/LaunchAgents/com.example.tunnel.plist")
-        ],
-        limits: [
-            UsageLimit(kind: "session", percent: 3, severity: "normal",
-                       resetsAt: resets(in: 4.8), modelName: nil),
-            UsageLimit(kind: "weekly_all", percent: 12, severity: "normal",
-                       resetsAt: resets(in: 120), modelName: nil)
-        ],
-        bridgeTasks: [
-            BridgeTask(id: "view-scratch:1:scratch", workspaceId: "view-scratch", workspaceLabel: "Scratch",
-                       tabLabel: "scratch", statusText: "✳ Idle",
-                       updatedAt: Date().timeIntervalSince1970 - 20)
-        ],
-        open: "DAEMONS"
-    )
+    static let stale = PreviewScenario(name: "stale", limits: normal.limits, error: "Usage API returned 429", stale: true)
 
-    /// Nothing running, no usage data. The empty state is a first impression
-    /// and it gets the whole panel to itself.
-    static let empty = PreviewScenario(name: "empty")
+    static let unavailable = PreviewScenario(name: "unavailable", error: "Session expired — run /login")
 
-    static let settings = PreviewScenario(name: "settings", page: .settings, set: "pages")
-    static let about = PreviewScenario(name: "about", page: .about, set: "pages")
-
-    /// The first-launch window. Nobody who has already run Perch will see it
-    /// again — `hasLaunchedBefore` is set — but it is a fresh install's entire
-    /// first impression, and it stayed on the stock system look for a long time.
-    static let welcome = PreviewScenario(name: "welcome", set: "welcome")
-    static let welcomeAccess = PreviewScenario(name: "welcome · access", set: "welcome", step: 1)
+    var monitor: LimitsMonitor { LimitsMonitor(frozen: limits, error: error, stale: stale) }
 }
 
 // MARK: - Window
 
 enum PreviewHarness {
 
-    /// `PERCH_UI_PREVIEW=1` renders the four state scenarios; `=pages` renders
-    /// settings and about.
-    private static var set: String {
-        let value = ProcessInfo.processInfo.environment["PERCH_UI_PREVIEW"] ?? ""
-        return value == "1" ? "main" : value
-    }
-
-    static var isEnabled: Bool { !set.isEmpty }
+    static var isEnabled: Bool { !(ProcessInfo.processInfo.environment["PERCH_UI_PREVIEW"] ?? "").isEmpty }
 
     private static var window: NSWindow?
 
-    /// Lays every scenario out in one row, and with `PERCH_UI_SHOT` set writes
+    /// The status item as the real one draws it: the owl image, then the title in
+    /// the button's 11pt medium monospaced-digit font, on a bar-coloured strip.
+    private struct BarItem: View {
+        let monitor: LimitsMonitor
+        let dark: Bool
+        var pose: OwlPose = .resting
+
+        var body: some View {
+            HStack(spacing: 3) {
+                Image(nsImage: MenuBarIcon.render(pose: monitor.owlAwake ? pose : .dozing,
+                                                  alert: monitor.owlAlert, isDarkMenuBar: dark))
+                Text(monitor.menuBarTitle)
+                    .font(.system(size: 11, weight: .medium).monospacedDigit())
+                    .foregroundStyle(dark ? Color.white : Color.black)
+            }
+            .padding(.horizontal, 8)
+            .frame(height: 24)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(dark ? Color(hex: 0x1B1B1F) : Color(hex: 0xE9E9EC))
+        }
+    }
+
+    /// Owl frames sampled from the real motion curves, on a dark bar, to show the
+    /// animation survives the trim: a swivel, a blink and the alert startle.
+    private struct Filmstrip: View {
+        private static let moves: [(String, OwlMove, Bool)] = [
+            ("swivel", OwlMotion.swivel(toward: 1), false),
+            ("blink", OwlMotion.blink(double: false), false),
+            ("startle", OwlMotion.startle(), true),
+        ]
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(Self.moves, id: \.0) { name, move, alert in
+                    HStack(spacing: 2) {
+                        Text(name.uppercased())
+                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(Color.white.opacity(0.4))
+                            .frame(width: 58, alignment: .leading)
+                        ForEach(0..<7, id: \.self) { i in
+                            let t = move.duration * Double(i) / 6
+                            Image(nsImage: MenuBarIcon.render(pose: move.pose(t), alert: alert, isDarkMenuBar: true))
+                                .background(Color(hex: 0x1B1B1F))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Lays the scenarios out in one row, and with `PERCH_UI_SHOT` set writes
     /// that window to a PNG and quits.
     static func present() {
         let gap: CGFloat = 26
-        let scenarios = PreviewScenario.all.filter { $0.set == set }
-        let width = (MenuBarView.panelSize.width + gap) * CGFloat(scenarios.count) + gap
-        // Tall enough for the fullest panel, and no taller than that: the grey
-        // left under a short panel is the point — it is how a round shows
-        // whether the panel actually sizes to its content.
-        let height = MenuBarView.maxListHeight + 260
+        let scenarios = PreviewScenario.all
+        let width = (UsagePopup.panelWidth + gap) * CGFloat(scenarios.count) + gap
+        let height: CGFloat = 480
 
-        let content = VStack(spacing: 0) {
+        let content = VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .top, spacing: gap) {
                 ForEach(scenarios, id: \.name) { scenario in
+                    let monitor = scenario.monitor
                     VStack(spacing: 7) {
-                        if scenario.set == "welcome" {
-                            WelcomeView(step: scenario.step)
-                        } else {
-                            // Sections open shut in the real panel. Opening one
-                            // here is what makes a round about the rows rather
-                            // than about an empty roost.
-                            MenuBarView(page: scenario.page, open: scenario.open)
-                                .environment(AppState(frozen: scenario))
-                                .environment(ScrollActivity())
-                                // The real panel asks SwiftUI for its *ideal*
-                                // height (NSHostingController's
-                                // `.preferredContentSize`). An HStack instead
-                                // proposes one, which the ScrollView happily
-                                // fills — so without this the harness shows
-                                // every panel stretched and hides the thing
-                                // being judged.
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-
+                        BarItem(monitor: monitor, dark: true)
+                        BarItem(monitor: monitor, dark: false)
+                        UsagePopup(monitor: monitor)
+                            .fixedSize(horizontal: false, vertical: true)
                         Text(scenario.name.uppercased())
                             .font(.system(size: 9, weight: .semibold, design: .monospaced))
                             .tracking(1.4)
                             .foregroundStyle(Color.white.opacity(0.3))
                     }
-                    .frame(width: MenuBarView.panelWidth, alignment: .top)
+                    .frame(width: UsagePopup.panelWidth, alignment: .top)
                 }
             }
-            .padding(gap)
+            Filmstrip()
         }
-        .frame(width: width, height: height, alignment: .top)
+        .padding(gap)
+        .frame(width: width, height: height, alignment: .topLeading)
         // A flat mid-grey, not black: the panel's material is translucent and
         // over pure black every surface token reads darker than it ships.
         .background(Color(hex: 0x3A3A42))
@@ -275,7 +144,6 @@ enum PreviewHarness {
         Self.window = window
 
         if let path = ProcessInfo.processInfo.environment["PERCH_UI_SHOT"] {
-            // Let the material and the owl's first frame settle.
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
                 write(window, to: path)
                 NSApp.terminate(nil)
@@ -283,11 +151,8 @@ enum PreviewHarness {
         }
     }
 
-    /// Renders the window's own backing store to a PNG. `screencapture` needs a
-    /// Screen Recording grant, and TCC keys that grant to the binary's resolved
-    /// path — which every Claude Code update changes, so the grant is gone by
-    /// the next design round. Drawing it ourselves needs no grant at all.
-    /// Every failure here shows up as a missing file, which `shot.sh` checks.
+    /// Renders the window's own backing store to a PNG, which needs no Screen
+    /// Recording grant. Every failure shows up as a missing file.
     private static func write(_ window: NSWindow, to path: String) {
         guard let view = window.contentView,
               let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }

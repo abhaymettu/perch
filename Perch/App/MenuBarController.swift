@@ -24,19 +24,16 @@ final class ClickThroughPanel: NSPanel {
 final class MenuBarController: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var panel: NSPanel!
-    private let appState = AppState()
+    private let usage = LimitsMonitor()
     private var eventMonitor: Any?
     private var iconAnimator: MenuBarIconAnimator!
-    private let scrollActivity = ScrollActivity()
-    private var scrollMonitor: Any?
     private weak var panelContentView: NSView?
     private var panelTopLeft: NSPoint = .zero
     // `NSHostingController.sizingOptions = []` (below) means AppKit no longer
     // tracks `panelContentView.fittingSize` — it reads back 0 always. SwiftUI
     // measures its own content instead and reports it here via
     // `.perchPanelLayoutChanged`'s userInfo.
-    private var lastReportedHeight: CGFloat = MenuBarView.minHeight
-    @AppStorage("hasLaunchedBefore") private var hasLaunchedBefore = false
+    private var lastReportedHeight: CGFloat = UsagePopup.minHeight
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // The panel floats over an uncontrolled wallpaper: a light appearance
@@ -44,10 +41,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         NSApp.appearance = NSAppearance(named: .darkAqua)
 
         #if DEBUG
-        ClaudeScanner.selfCheck()
         LimitsMonitor.selfCheck()
-        LaunchAgent.selfCheck()
-        FailureBox.selfCheck()
         Task { await Shell.selfCheck() }
 
         if PreviewHarness.isEnabled {
@@ -57,8 +51,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         }
         #endif
 
-        // Variable length: the quota time sits beside the owl as the
-        // button's title, which a square item would clip.
+        // Variable length: the owl plus the "S 4% · W 44% used" title.
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem.button {
@@ -75,9 +68,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         // `.intrinsicContentSize` leaves the window stale. `syncPanelHeight`
         // pulls the size instead.
         let hostingController = NSHostingController(rootView:
-            MenuBarView()
-                .environment(appState)
-                .environment(scrollActivity)
+            UsagePopup(monitor: usage)
         )
         // Empty, not the AppKit default: with any sizing option set,
         // NSHostingView recomputes the window's content-size extrema on every
@@ -89,7 +80,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         hostingController.sizingOptions = []
 
         panel = ClickThroughPanel(
-            contentRect: NSRect(origin: .zero, size: MenuBarView.panelSize),
+            contentRect: NSRect(origin: .zero, size: CGSize(width: UsagePopup.panelWidth, height: UsagePopup.minHeight)),
             styleMask: [.nonactivatingPanel, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -129,11 +120,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
             }
         }
 
-        startIconUpdates()
-
-        if !hasLaunchedBefore {
-            WelcomeWindowController.show()
-        }
+        MainActor.assumeIsolated { startTitleUpdates() }
     }
 
     @objc private func togglePanel() {
@@ -151,7 +138,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         let buttonFrame = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
         var x = buttonFrame.minX
         if let screen = buttonWindow.screen {
-            x = min(x, screen.visibleFrame.maxX - MenuBarView.panelWidth - 8)
+            x = min(x, screen.visibleFrame.maxX - UsagePopup.panelWidth - 8)
         }
         panelTopLeft = NSPoint(x: x, y: buttonFrame.minY - 4)
 
@@ -176,11 +163,6 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
 
         eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             self?.closePanel()
-        }
-
-        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
-            Task { @MainActor in self?.scrollActivity.noteScroll() }
-            return event
         }
     }
 
@@ -227,10 +209,6 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
             NSEvent.removeMonitor(monitor)
             eventMonitor = nil
         }
-        if let monitor = scrollMonitor {
-            NSEvent.removeMonitor(monitor)
-            scrollMonitor = nil
-        }
     }
 
     /// The panel is as tall as what is running. AppKit resizes a window about
@@ -239,14 +217,14 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     /// that is what stops it becoming the feedback loop `.preferredContentSize`
     /// was.
     private func syncPanelHeight(animated: Bool = true) {
-        let height = max(lastReportedHeight, MenuBarView.minHeight)
+        let height = max(lastReportedHeight, UsagePopup.minHeight)
         guard abs(panel.frame.height - height) > 0.5 else { return }
 
         // One animated setFrame, not setContentSize plus a re-pin: two separate
         // frame writes are what made the resize land as a jump and a shove.
         // maxY is held so the growth goes downward, away from the menu bar.
         var frame = panel.frame
-        frame.size = NSSize(width: MenuBarView.panelWidth, height: height)
+        frame.size = NSSize(width: UsagePopup.panelWidth, height: height)
         frame.origin.y = panel.frame.maxY - height
 
         guard animated else { return panel.setFrame(frame, display: true) }
@@ -261,18 +239,24 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     @MainActor
     private func updateQuotaTitle() {
         // Empty string, not nil: AppKit keeps the old title otherwise.
-        let title = appState.usage.menuBarTitle
+        let title = usage.menuBarTitle
         if statusItem.button?.title != title {
             statusItem.button?.title = title
         }
     }
 
-    private func startIconUpdates() {
+    /// The title only changes when a fetch lands (every 180s), so this is a
+    /// cheap string compare once a second. The owl is awake while usage is
+    /// readable and red when a window is critical or the fetch is failing;
+    /// both setters ignore an unchanged value.
+    @MainActor
+    private func startTitleUpdates() {
+        updateQuotaTitle()
         Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            guard let self else { return }
             Task { @MainActor in
-                self.iconAnimator.setAwake(self.appState.isActive)
-                self.iconAnimator.setAlert(self.appState.hasProblem)
+                guard let self else { return }
+                self.iconAnimator.setAwake(self.usage.owlAwake)
+                self.iconAnimator.setAlert(self.usage.owlAlert)
                 self.updateQuotaTitle()
                 self.syncPanelHeight()
             }
