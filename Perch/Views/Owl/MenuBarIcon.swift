@@ -2,10 +2,39 @@ import SwiftUI
 
 enum MenuBarIcon {
     static let iconSize: CGFloat = 22
+    /// The owl is drawn at `iconSize`; the canvas is wider so its moves have
+    /// room. The bob sways the 21pt face 2.6pt off centre, and a 22pt square
+    /// cut a cheek off at each end of it (his 2026-10-09 11:43 report). 30
+    /// keeps the resting owl on a whole point, so it draws as it always did.
+    static let canvasSize = CGSize(width: 30, height: iconSize)
+
+    private static var scale: CGFloat { iconSize / OwlGeometry.baseSize }
+
+    /// Where the head sits on one frame. A turned head is narrower, and a
+    /// landed one is shorter. Both are applied to the silhouette here so every
+    /// feature can be positioned against the face the frame actually draws,
+    /// and so the bounds check measures that same face.
+    static func faceRect(for pose: OwlPose) -> CGRect {
+        let mid = CGPoint(
+            x: canvasSize.width / 2 + pose.lean * scale,
+            y: canvasSize.height / 2 + 0.5 - pose.lift * scale
+        )
+        let resting = OwlGeometry.faceRect(centeredAt: mid, scale: scale)
+        let widthScale = 1 - 0.12 * pow(sin(pose.turn), 2)
+        return CGRect(
+            x: mid.x - resting.width * widthScale / 2,
+            y: mid.y - resting.height * pose.squash / 2,
+            width: resting.width * widthScale,
+            height: resting.height * pose.squash
+        )
+    }
+
+    /// The grounding shadow is stroked on the head's outline, so half of it
+    /// lands outside `faceRect`.
+    static var shadowWidth: CGFloat { max(0.75, scale * 0.8) }
 
     @MainActor
     static func render(pose: OwlPose, alert: Bool = false, isDarkMenuBar: Bool) -> NSImage {
-        let size = NSSize(width: iconSize, height: iconSize)
         // Template mode discards RGB and re-tints every pixel to one flat
         // foreground colour, keyed off alpha alone. That collapses the
         // specular rim — drawn as *more* alpha, on purpose — into more of
@@ -24,10 +53,51 @@ enum MenuBarIcon {
             return NSImage(systemSymbolName: "network", accessibilityDescription: "Perch")!
         }
 
-        let image = NSImage(cgImage: cgImage, size: size)
+        let image = NSImage(cgImage: cgImage, size: canvasSize)
         image.isTemplate = false
         return image
     }
+
+    #if DEBUG
+    /// Pins the 11:43 clipping fix. Every move, both ways, sampled every
+    /// millisecond: the head plus the outer half of its shadow keeps half a
+    /// point clear of every canvas edge. Then every frame the animator draws
+    /// (60 a second) is rendered, and its outermost pixel ring must be empty,
+    /// because the canvas cuts off anything drawn past it.
+    @MainActor
+    static func selfCheck() {
+        let canvas = CGRect(origin: .zero, size: canvasSize)
+        let inset = 0.5 + shadowWidth / 2
+        for (name, move, alert) in OwlMotion.everyMove {
+            for ms in 0...Int(move.duration * 1000) {
+                let face = faceRect(for: move.pose(Double(ms) / 1000))
+                assert(canvas.insetBy(dx: inset, dy: inset).contains(face),
+                       "owl \(name) at \(ms)ms: face \(face) leaves \(canvas) inset \(inset)")
+            }
+            for frame in 0...Int(move.duration * 60) {
+                let t = min(Double(frame) / 60, move.duration)
+                let image = render(pose: move.pose(t), alert: alert, isDarkMenuBar: true)
+                let ink = edgeInk(image.cgImage(forProposedRect: nil, context: nil, hints: nil)!)
+                assert(image.size == canvasSize && ink == 0, "owl \(name) frame \(frame): \(ink) px of ink on the canvas edge")
+            }
+        }
+    }
+
+    /// Pixels in the outermost one-pixel ring with any alpha.
+    private static func edgeInk(_ image: CGImage) -> Int {
+        let (w, h) = (image.width, image.height)
+        var rgba = [UInt8](repeating: 0, count: w * h * 4)
+        let context = CGContext(data: &rgba, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                space: CGColorSpaceCreateDeviceRGB(),
+                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+        var ink = 0
+        for y in 0..<h { for x in 0..<w where (x == 0 || y == 0 || x == w - 1 || y == h - 1) && rgba[(y * w + x) * 4 + 3] > 0 {
+            ink += 1
+        } }
+        return ink
+    }
+    #endif
 }
 
 private struct MenuBarOwl: View {
@@ -39,23 +109,9 @@ private struct MenuBarOwl: View {
     private var scale: CGFloat { size / OwlGeometry.baseSize }
 
     var body: some View {
-        Canvas { context, canvasSize in
-            let mid = CGPoint(
-                x: canvasSize.width / 2 + pose.lean * scale,
-                y: canvasSize.height / 2 + 0.5 - pose.lift * scale
-            )
-
-            let resting = OwlGeometry.faceRect(centeredAt: mid, scale: scale)
-            // A turned head is narrower, and a landed one is shorter. Both are
-            // applied to the silhouette here so every feature below can be
-            // positioned against the face the frame actually draws.
-            let widthScale = 1 - 0.12 * pow(sin(pose.turn), 2)
-            let faceRect = CGRect(
-                x: mid.x - resting.width * widthScale / 2,
-                y: mid.y - resting.height * pose.squash / 2,
-                width: resting.width * widthScale,
-                height: resting.height * pose.squash
-            )
+        Canvas { context, _ in
+            let faceRect = MenuBarIcon.faceRect(for: pose)
+            let midX = faceRect.midX
 
             let eyeCenterY = faceRect.midY - OwlGeometry.eyeCenterOffsetRatio * scale
             let eyeWidth = OwlGeometry.eyeWidthRatio * scale
@@ -77,7 +133,7 @@ private struct MenuBarOwl: View {
             // The beak sits at azimuth 0, dead centre of the face. It narrows
             // about its own x rather than about the canvas origin, which is
             // what the translate-scale-translate is for.
-            let beakX = mid.x + radius * sin(pose.turn)
+            let beakX = midX + radius * sin(pose.turn)
             if cos(pose.turn) > OwlGeometry.cullCosine {
                 let beak = OwlGeometry.beakPath(midX: beakX, eyeCenterY: eyeCenterY, scale: scale)
                 punch.addPath(beak.applying(
@@ -96,7 +152,7 @@ private struct MenuBarOwl: View {
                 // the eye keeps its full height all the way round.
                 let width = eyeWidth * facing / cos(alpha)
                 let eyeRect = CGRect(
-                    x: mid.x + radius * sin(azimuth) - width / 2,
+                    x: midX + radius * sin(azimuth) - width / 2,
                     y: eyeCenterY - eyeHeight / 2,
                     width: width,
                     height: eyeHeight
@@ -173,9 +229,9 @@ private struct MenuBarOwl: View {
                     x: faceRect.minX - scale, y: faceRect.maxY - faceRect.height * 0.4,
                     width: faceRect.width + 2 * scale, height: faceRect.height * 0.4 + scale
                 )))
-                layer.stroke(head, with: .color(.black.opacity(0.35)), lineWidth: max(0.75, scale * 0.8))
+                layer.stroke(head, with: .color(.black.opacity(0.35)), lineWidth: MenuBarIcon.shadowWidth)
             }
         }
-        .frame(width: size, height: size)
+        .frame(width: MenuBarIcon.canvasSize.width, height: MenuBarIcon.canvasSize.height)
     }
 }

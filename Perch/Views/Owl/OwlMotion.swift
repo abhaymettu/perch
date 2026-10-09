@@ -51,6 +51,19 @@ enum OwlMotion {
 
     private static var coinFlip: CGFloat { Bool.random() ? 1 : -1 }
 
+    #if DEBUG
+    /// Every move the owl can play, each way round: what the bounds check and
+    /// the preview filmstrip walk.
+    /// `alert` is the tint the move plays in: only the startle is red.
+    static let everyMove: [(name: String, move: OwlMove, alert: Bool)] = [
+        ("blink", blink(double: false), false), ("blink x2", blink(double: true), false),
+        ("peek L", peek(toward: -1), false), ("peek R", peek(toward: 1), false),
+        ("bob", bob(), false),
+        ("swivel L", swivel(toward: -1), false), ("swivel R", swivel(toward: 1), false),
+        ("startle", startle(), true),
+    ]
+    #endif
+
     // MARK: - Blink
 
     private static let closeDuration: TimeInterval = 0.07
@@ -117,11 +130,15 @@ enum OwlMotion {
         let duration: TimeInterval = 1.1
 
         return OwlMove(duration: duration) { elapsed in
-            let sway = sin(CGFloat(elapsed / duration) * 2 * .pi)
+            // Eased phase: a bare sine leaves rest and lands back on it at full
+            // speed, a jolt at both ends. The dip is the square of the sway
+            // rather than its absolute value, which kinked as the head crossed
+            // centre.
+            let sway = sin(smoothstep(CGFloat(elapsed / duration)) * 2 * .pi)
             return OwlPose(
                 turn: -sway * 0.22,
                 lean: sway * 2.8,
-                lift: -abs(sway) * 0.6
+                lift: -sway * sway * 0.6
             )
         }
     }
@@ -190,6 +207,9 @@ enum OwlMotion {
     private static func rush(_ t: CGFloat) -> CGFloat { t * t * t }
 
     private static func easeOut(_ t: CGFloat) -> CGFloat { 1 - (1 - t) * (1 - t) }
+
+    /// Gentler through the middle than `easeInOut`, for the bob's centre crossing.
+    private static func smoothstep(_ t: CGFloat) -> CGFloat { t * t * (3 - 2 * t) }
 
     private static func easeInOut(_ t: CGFloat) -> CGFloat {
         t < 0.5 ? 2 * t * t : 1 - pow(-2 * t + 2, 2) / 2

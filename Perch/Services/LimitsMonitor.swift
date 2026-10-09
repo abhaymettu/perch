@@ -335,23 +335,21 @@ final class LimitsMonitor {
     var menuBarTitle: String { menuBarTitle(at: Date()) }
 
     /// With several accounts the title and that account's card read the same
-    /// state.json row, so they can never disagree. "Second account" is the
-    /// default and goes unnamed; any other choice is named. A chosen account
-    /// that is missing, signed out or stale says so: never another account's
-    /// numbers in its place.
+    /// state.json row, so they can never disagree. The title is numbers only,
+    /// whichever account is picked: which one it is lives in the panel's picker
+    /// (his call, 2026-10-09 11:40). A chosen account that is missing, signed
+    /// out or stale says so: never another account's numbers in its place.
     func menuBarTitle(at now: Date) -> String {
         guard isMultiAccount else { return fetchedTitle }
         guard let picked = selectedAccount else { return "Account not found" }
-        if picked.isSignedOut { return "\(picked.name) signed out" }
-
-        let prefix = picked.id == account ? "" : "\(picked.name) · "
-        guard !picked.windows.isEmpty else { return prefix + "Usage unavailable" }
+        if picked.isSignedOut { return "Signed out" }
+        guard !picked.windows.isEmpty else { return "Usage unavailable" }
 
         func part(_ label: String, _ kind: String) -> String {
             guard let window = picked.window(kind) else { return "\(label) n/a" }
             return window.hasReset(at: now) ? "\(label) reset" : "\(label) \(window.percent)%"
         }
-        return prefix + "\(part("S", "session")) · \(part("W", "weekly_all")) used"
+        return "\(part("S", "session")) · \(part("W", "weekly_all")) used"
             + (picked.isStale(at: now) ? " · stale" : "")
     }
 
@@ -525,10 +523,19 @@ final class LimitsMonitor {
         assert(rows.selectedAccount?.name == "Second account" && rows.owlAlert, "a stale live row alarms")
         assert(rows.menuBarTitle(at: at.addingTimeInterval(16 * 60)) == "S 8% · W 2% used · stale")
         let main = LimitsMonitor(frozen: [], accounts: labelled.accounts, account: "acct2", menuBarAccount: "acct1")
-        assert(main.menuBarTitle(at: at) == "Main account signed out", "got '\(main.menuBarTitle(at: at))'")
+        assert(main.menuBarTitle(at: at) == "Signed out", "got '\(main.menuBarTitle(at: at))'")
         assert(!main.owlAwake && !main.owlAlert, "a signed-out choice dozes, it does not alarm")
         let gone = LimitsMonitor(frozen: parsed, accounts: labelled.accounts, account: "acct2", menuBarAccount: "acct9")
         assert(gone.menuBarTitle(at: at) == "Account not found" && gone.owlAlert)
+
+        // Binding: a picked live account shows its own numbers, unnamed, never the default's.
+        let both = parseAccounts(Data(state.replacingOccurrences(of: "\"removed-needs-reauth\"", with: "\"live\"")
+            .replacingOccurrences(of: "\"observed_at\":\"2026-10-09T15:05:48+00:00\"", with: "\"observed_at\":\"2026-10-09T15:40:51+00:00\"").utf8))
+        let early = reset.addingTimeInterval(-120)
+        let picked1 = LimitsMonitor(frozen: parsed, accounts: both.accounts, account: "acct2", menuBarAccount: "acct1")
+        let picked2 = LimitsMonitor(frozen: parsed, accounts: both.accounts, account: "acct2", menuBarAccount: "acct2")
+        assert(picked1.menuBarTitle(at: early) == "S 4% · W 99% used", "got '\(picked1.menuBarTitle(at: early))'")
+        assert(picked2.menuBarTitle(at: early) == "S 8% · W 2% used", "got '\(picked2.menuBarTitle(at: early))'")
     }
     #endif
 }
