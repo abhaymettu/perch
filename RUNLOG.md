@@ -1,0 +1,6 @@
+## 2026-10-09T11:58:00 | perch-owl-10091147 | DONE
+- DONE: owl canvas 22->30x22 pt holds every pose with art unchanged; frames clock-timed; bob eased (smoothstep, squared dip). usage-only ff2c5b0, main 6fe0539 same tree. Debug selfCheck fails at 22pt, passes at 30pt (1ms bounds sweep + every 60fps frame edge ring). 411-frame filmstrip inspected, min clearance 1.5pt (bob). Release staged sha256 4a0e0e22e0cf9fe81d262b08d7905fa12df5e1b95023890a178cfd69158169ee. owl-install.sh/owl-rollback.sh fixture-tested A-G.
+- DECIDED: 30pt canvas (not 28/29) because it keeps the owl centre on a whole point and gives a 1.5pt min margin; kept 1ms sweep + every-frame filmstrip over ponytail findings because clock timing lands at any t and the brief asks for them.
+- OPEN: install held for the owner (owner-run `bash ~/scratch/perch-usage-only-20261006/owl-install.sh`); live menu-bar pixels across motion frames after install are his visual acceptance.
+- REJECTED: repo shot.sh because its pkill -f also kills the live /Applications Perch; copied /usr/bin/yes as a dummy process because macOS SIGKILLs copied platform binaries (used a compiled dummy).
+- ARTIFACT: /Users/abhay/scratch/perch-usage-only-20261006/worktree/OWL-RESULT.md (staged sha 4a0e0e22…69ee, commit ff2c5b0)
