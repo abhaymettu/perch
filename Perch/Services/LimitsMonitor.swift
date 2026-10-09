@@ -69,6 +69,8 @@ struct UsageLimit: Identifiable, Equatable {
 /// ever added up or averaged across accounts.
 struct AccountUsage: Identifiable, Equatable {
     let id: String
+    /// His own name for the account, from accounts.json ("Main account").
+    let label: String?
     let email: String?
     /// live | cached | unavailable | removed-needs-reauth
     let status: String
@@ -78,6 +80,19 @@ struct AccountUsage: Identifiable, Equatable {
 
     /// Signed out on this Mac: the numbers are history, kept for reference.
     var isSignedOut: Bool { status == "removed-needs-reauth" }
+
+    /// The id is for data only; a registry without a label falls back to the email.
+    var name: String { label ?? email ?? id }
+
+    func window(_ kind: String) -> UsageLimit? { windows.first { $0.kind == kind } }
+
+    /// Three missed polls: the same rule pocket-herdr and lane-ledger use.
+    static let staleAfter: TimeInterval = 15 * 60
+
+    /// Not fetched live within the last 15 minutes, so the numbers may have moved.
+    func isStale(at now: Date) -> Bool {
+        status != "live" || observedAt.map { now.timeIntervalSince($0) > Self.staleAfter } ?? true
+    }
 }
 
 /// Reads Anthropic's OAuth usage endpoint — percent of limit per window, which
@@ -101,6 +116,12 @@ final class LimitsMonitor {
     private(set) var accounts: [AccountUsage] = []
     private(set) var account: String?
 
+    /// The account the menu bar title follows, as he chose it in the panel.
+    /// nil follows perch-usage's default account.
+    private(set) var menuBarAccount: String? = UserDefaults.standard.string(forKey: LimitsMonitor.menuBarAccountKey)
+    private static let menuBarAccountKey = "menuBarAccount"
+    @ObservationIgnored private var accountsStamp: Date?
+
     /// The endpoint drops persistently-429ing callers into a punitive bucket.
     /// 180s is the documented-safe floor; countdowns tick off `resetsAt`
     /// locally, so a slower poll costs nothing on screen.
@@ -111,6 +132,7 @@ final class LimitsMonitor {
     private var userAgent: String?
 
     init() {
+        reloadAccountsIfChanged()
         Task { await refresh() }
 
         timer = Timer.scheduledTimer(withTimeInterval: Self.interval, repeats: true) { [weak self] _ in
@@ -124,9 +146,10 @@ final class LimitsMonitor {
     /// Seeded and inert, for the preview harness. Real data is `normal` almost
     /// all the time, so warning and critical would otherwise ship unrendered.
     init(frozen limits: [UsageLimit], model: String? = "opus-5", error: String? = nil, stale: Bool = false,
-         accounts: [AccountUsage] = [], account: String? = nil) {
+         accounts: [AccountUsage] = [], account: String? = nil, menuBarAccount: String? = nil) {
         self.accounts = accounts
         self.account = account
+        self.menuBarAccount = menuBarAccount
         self.limits = limits
         self.isStale = stale
         self.model = model
@@ -137,12 +160,6 @@ final class LimitsMonitor {
     // MARK: - Fetch
 
     func refresh() async {
-        // A local file, so it updates even when the fetch below fails.
-        let (owner, accounts) = Self.readAccounts()
-        await MainActor.run {
-            self.account = owner
-            self.accounts = accounts
-        }
         do {
             let parsed = try Self.parse(await fetch())
             let settingsModel = Self.configuredModel()
@@ -301,16 +318,47 @@ final class LimitsMonitor {
         limits.filter { $0.kind == "session" || $0.kind == "weekly_all" }
     }
 
-    /// Awake while there is a reading to watch; dozing before the first fetch.
-    var owlAwake: Bool { !limits.isEmpty }
+    /// Awake while there is a live reading to watch; dozing before the first
+    /// fetch and while the chosen account is signed out.
+    var owlAwake: Bool {
+        isMultiAccount ? selectedAccount?.status == "live" : !limits.isEmpty
+    }
 
-    /// Red owl: any window critical, or the fetch is failing.
-    var owlAlert: Bool { error != nil || limits.contains { $0.severity == "critical" } }
+    /// Red owl: any window critical, or the numbers shown are failing to refresh.
+    /// A signed-out account is a known state he chose to watch, not a failure.
+    var owlAlert: Bool {
+        guard isMultiAccount else { return error != nil || limits.contains { $0.severity == "critical" } }
+        guard let picked = selectedAccount else { return true }
+        return (!picked.isSignedOut && picked.isStale(at: Date())) || picked.windows.contains { $0.severity == "critical" }
+    }
+
+    var menuBarTitle: String { menuBarTitle(at: Date()) }
+
+    /// With several accounts the title and that account's card read the same
+    /// state.json row, so they can never disagree. "Second account" is the
+    /// default and goes unnamed; any other choice is named. A chosen account
+    /// that is missing, signed out or stale says so: never another account's
+    /// numbers in its place.
+    func menuBarTitle(at now: Date) -> String {
+        guard isMultiAccount else { return fetchedTitle }
+        guard let picked = selectedAccount else { return "Account not found" }
+        if picked.isSignedOut { return "\(picked.name) signed out" }
+
+        let prefix = picked.id == account ? "" : "\(picked.name) · "
+        guard !picked.windows.isEmpty else { return prefix + "Usage unavailable" }
+
+        func part(_ label: String, _ kind: String) -> String {
+            guard let window = picked.window(kind) else { return "\(label) n/a" }
+            return window.hasReset(at: now) ? "\(label) reset" : "\(label) \(window.percent)%"
+        }
+        return prefix + "\(part("S", "session")) · \(part("W", "weekly_all")) used"
+            + (picked.isStale(at: now) ? " · stale" : "")
+    }
 
     /// "S 4% · W 44% used". Percent used, never remaining. A window the payload
     /// lacks reads "n/a", and with no successful fetch yet it says so rather
     /// than guessing 0. "stale" is appended when the last fetch failed.
-    var menuBarTitle: String {
+    private var fetchedTitle: String {
         guard !headline.isEmpty else { return error == nil ? "Usage …" : "Usage unavailable" }
 
         func part(_ label: String, _ kind: String) -> String {
@@ -330,6 +378,30 @@ final class LimitsMonitor {
         FileManager.default.contents(atPath: accountsPath).map(parseAccounts) ?? (nil, [])
     }
 
+    /// Cards and the panel's picker take over once there is more than one account.
+    var isMultiAccount: Bool { accounts.count > 1 }
+
+    var menuBarAccountID: String? { menuBarAccount ?? account }
+
+    var selectedAccount: AccountUsage? { accounts.first { $0.id == menuBarAccountID } }
+
+    func chooseMenuBarAccount(_ id: String) {
+        menuBarAccount = id
+        UserDefaults.standard.set(id, forKey: Self.menuBarAccountKey)
+    }
+
+    /// Called every second: a stat, and a read only when the poller has written.
+    /// A file that will not parse is skipped without recording its stamp, so it
+    /// is read again next second rather than blanking the cards.
+    func reloadAccountsIfChanged() {
+        let stamp = (try? FileManager.default.attributesOfItem(atPath: Self.accountsPath))?[.modificationDate] as? Date
+        guard stamp != accountsStamp else { return }
+        let read = Self.readAccounts()
+        guard stamp == nil || !read.accounts.isEmpty else { return }
+        accountsStamp = stamp
+        (account, accounts) = read
+    }
+
     /// Missing or malformed pieces drop out rather than failing the file: an
     /// unavailable account has no windows at all, and that is a state to show.
     static func parseAccounts(_ data: Data) -> (account: String?, accounts: [AccountUsage]) {
@@ -339,7 +411,8 @@ final class LimitsMonitor {
         func window(_ kind: String, _ value: Any?, model: String? = nil) -> UsageLimit? {
             guard let value = value as? [String: Any],
                   let percent = value["usage_percent"] as? Int else { return nil }
-            return UsageLimit(kind: kind, percent: min(max(percent, 0), 100), severity: "normal",
+            return UsageLimit(kind: kind, percent: min(max(percent, 0), 100),
+                              severity: value["severity"] as? String ?? "normal",
                               resetsAt: date(value["resets_at"]), modelName: model)
         }
 
@@ -347,6 +420,7 @@ final class LimitsMonitor {
             let fable = window("weekly_scoped", (entry["models"] as? [String: Any])?["fable"], model: "Fable")
             return AccountUsage(
                 id: id,
+                label: entry["label"] as? String,
                 email: entry["email"] as? String,
                 status: entry["status"] as? String ?? "unavailable",
                 reason: entry["reason"] as? String,
@@ -440,6 +514,21 @@ final class LimitsMonitor {
         assert(accounts[1].isSignedOut && accounts[1].windows.count == 2)
         assert(accounts[1].windows[0].hasReset(at: reset.addingTimeInterval(60)))
         assert(parseAccounts(Data("garbage".utf8)).accounts.isEmpty)
+
+        // Title and card from one row; the chosen account is never swapped for another.
+        let at = ISO8601DateFormatter().date(from: "2026-10-09T15:42:00Z")!
+        let labelled = parseAccounts(Data(state.replacingOccurrences(of: "\"acct1\":{", with: "\"acct1\":{\"label\":\"Main account\",")
+            .replacingOccurrences(of: "\"acct2\":{", with: "\"acct2\":{\"label\":\"Second account\",").utf8))
+        let rows = LimitsMonitor(frozen: parsed, accounts: labelled.accounts, account: "acct2")
+        assert(rows.menuBarTitle(at: at) == "S 8% · W 2% used", "got '\(rows.menuBarTitle(at: at))'")
+        // The fixture's 15:40Z reading is long past 15 minutes on the real clock.
+        assert(rows.selectedAccount?.name == "Second account" && rows.owlAlert, "a stale live row alarms")
+        assert(rows.menuBarTitle(at: at.addingTimeInterval(16 * 60)) == "S 8% · W 2% used · stale")
+        let main = LimitsMonitor(frozen: [], accounts: labelled.accounts, account: "acct2", menuBarAccount: "acct1")
+        assert(main.menuBarTitle(at: at) == "Main account signed out", "got '\(main.menuBarTitle(at: at))'")
+        assert(!main.owlAwake && !main.owlAlert, "a signed-out choice dozes, it does not alarm")
+        let gone = LimitsMonitor(frozen: parsed, accounts: labelled.accounts, account: "acct2", menuBarAccount: "acct9")
+        assert(gone.menuBarTitle(at: at) == "Account not found" && gone.owlAlert)
     }
     #endif
 }
