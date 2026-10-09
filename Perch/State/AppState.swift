@@ -88,7 +88,7 @@ final class AppState {
     /// Frozen state for the preview harness: no poll, no network, so a
     /// screenshot of round N is comparable to a screenshot of round N+1.
     init(frozen scenario: PreviewScenario) {
-        usage = LimitsMonitor(frozen: scenario.limits, accounts: scenario.accounts, account: scenario.account)
+        usage = LimitsMonitor(frozen: scenario.limits)
         servers = scenario.servers
         simulators = scenario.simulators
         sessions = scenario.sessions

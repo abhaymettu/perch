@@ -54,27 +54,6 @@ struct UsageLimit: Identifiable, Equatable {
         default:      return pair(minutes / 1440, "d", minutes % 1440 / 60, "h")
         }
     }
-
-    /// The window this number was observed in has already rolled over, so the
-    /// number describes a window that no longer exists.
-    var hasReset: Bool {
-        resetsAt.map { $0 <= Date() } ?? false
-    }
-}
-
-/// One Claude account's own windows, as the perch-usage LaunchAgent last saw
-/// them. Accounts have separate limits on separate clocks, so nothing here is
-/// ever added up or averaged across accounts.
-struct AccountUsage: Identifiable, Equatable {
-    let id: String
-    let email: String?
-    /// live | cached | unavailable | removed-needs-reauth
-    let status: String
-    let reason: String?
-    let session: UsageLimit?
-    let weekly: UsageLimit?
-    let observedAt: Date?
-    let lanes: [String]
 }
 
 /// Reads Anthropic's OAuth usage endpoint — percent of limit per window, which
@@ -92,11 +71,6 @@ final class LimitsMonitor {
     /// Set when a fetch failed but earlier numbers are still on screen. The
     /// panel keeps showing them rather than blanking out.
     private(set) var isStale = false
-
-    /// Every account perch-usage polls, ordered by id, and which of them the
-    /// numbers above belong to. Empty when its state file is missing or garbled.
-    private(set) var accounts: [AccountUsage] = []
-    private(set) var account: String?
 
     /// The endpoint drops persistently-429ing callers into a punitive bucket.
     /// 180s is the documented-safe floor; countdowns tick off `resetsAt`
@@ -120,26 +94,16 @@ final class LimitsMonitor {
     #if DEBUG
     /// Seeded and inert, for the preview harness. Real data is `normal` almost
     /// all the time, so warning and critical would otherwise ship unrendered.
-    init(frozen limits: [UsageLimit], model: String? = "opus-5", error: String? = nil,
-         accounts: [AccountUsage] = [], account: String? = nil) {
+    init(frozen limits: [UsageLimit], model: String? = "opus-5", error: String? = nil) {
         self.limits = limits
         self.model = model
         self.error = error
-        self.accounts = accounts
-        self.account = account
     }
     #endif
 
     // MARK: - Fetch
 
     func refresh() async {
-        // A local file, so it updates even when the fetch below fails.
-        let (owner, accounts) = Self.readAccounts()
-        await MainActor.run {
-            self.account = owner
-            self.accounts = accounts
-        }
-
         do {
             let parsed = try Self.parse(await fetch())
             let settingsModel = Self.configuredModel()
@@ -290,52 +254,6 @@ final class LimitsMonitor {
         return root["model"] as? String
     }
 
-    // MARK: - Accounts
-
-    /// Written every 300s by the perch-usage LaunchAgent, which polls each
-    /// account with its own token. Perch only reads it: no extra token, no
-    /// extra call against the endpoint's rate limit.
-    private static let accountsPath = ("~/.local/state/perch-usage/state.json" as NSString).expandingTildeInPath
-
-    static func readAccounts() -> (account: String?, accounts: [AccountUsage]) {
-        FileManager.default.contents(atPath: accountsPath).map(parseAccounts) ?? (nil, [])
-    }
-
-    /// Missing or malformed pieces drop to nil rather than failing the file:
-    /// an unavailable account has no windows at all, and that is a state to show.
-    static func parseAccounts(_ data: Data) -> (account: String?, accounts: [AccountUsage]) {
-        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let raw = root["accounts"] as? [String: [String: Any]] else { return (nil, []) }
-
-        func window(_ kind: String, _ value: Any?) -> UsageLimit? {
-            guard let value = value as? [String: Any],
-                  let percent = value["usage_percent"] as? Int else { return nil }
-            return UsageLimit(kind: kind, percent: min(max(percent, 0), 100), severity: "normal",
-                              resetsAt: date(value["resets_at"]), modelName: nil)
-        }
-
-        let accounts = raw.keys.sorted().map { id in
-            let entry = raw[id]!
-            return AccountUsage(
-                id: id,
-                email: entry["email"] as? String,
-                status: entry["status"] as? String ?? "unavailable",
-                reason: entry["reason"] as? String,
-                session: window("session", entry["session"]),
-                weekly: window("weekly_all", entry["weekly"]),
-                observedAt: date(entry["observed_at"]),
-                lanes: entry["lanes"] as? [String] ?? []
-            )
-        }
-        return (root["account"] as? String, accounts)
-    }
-
-    /// The writer emits timestamps both with and without fractional seconds.
-    private static func date(_ value: Any?) -> Date? {
-        guard let string = value as? String else { return nil }
-        return ISO8601DateFormatter.usage.date(from: string) ?? ISO8601DateFormatter().date(from: string)
-    }
-
     // MARK: - Menu bar
 
     /// The session window always leads, since that is what you are spending
@@ -377,9 +295,8 @@ final class LimitsMonitor {
         assert(parsed[0].resetsAt != nil, "fractional-second resets_at failed to decode")
         assert(parsed[2].shortTitle == "WEEK · FABLE", "got \(parsed[2].shortTitle)")
 
-        // Frozen, not live: a live monitor's init reads the Keychain and calls
-        // the endpoint before the timer can be stopped.
-        let monitor = LimitsMonitor(frozen: [])
+        let monitor = LimitsMonitor()
+        monitor.timer?.invalidate()
 
         monitor.limits = parsed
         assert(monitor.lead?.kind == "session", "session should lead below 75%")
@@ -405,23 +322,6 @@ final class LimitsMonitor {
                                    resetsAt: Date().addingTimeInterval(seconds), modelName: nil)
             assert(limit.countdown() == expected, "\(seconds)s gave '\(limit.countdown())', want '\(expected)'")
         }
-
-        // Accounts: ordered by id, both timestamp shapes decode, and a window
-        // whose reset is behind us reads as reset, not as current usage.
-        let state = """
-        {"account":"acct2","accounts":{
-          "acct2":{"status":"live","session":{"usage_percent":2,"resets_at":"2999-01-01T00:00:00+00:00"},
-                   "weekly":{"usage_percent":0,"resets_at":null},"observed_at":"2026-10-09T15:25:50.1+00:00","lanes":["a","b"]},
-          "acct1":{"status":"cached","session":{"usage_percent":4,"resets_at":"2020-01-01T00:00:00+00:00"},
-                   "weekly":null,"observed_at":"2026-10-09T15:05:48+00:00","lanes":[]}}}
-        """
-        let (owner, accounts) = parseAccounts(Data(state.utf8))
-        assert(owner == "acct2" && accounts.map(\.id) == ["acct1", "acct2"], "got \(accounts.map(\.id))")
-        assert(accounts.allSatisfy { $0.observedAt != nil }, "observed_at failed to decode")
-        assert(accounts[0].session?.hasReset == true, "a passed reset still reads as current")
-        assert(accounts[1].session?.hasReset == false && accounts[1].weekly?.hasReset == false)
-        assert(accounts[0].weekly == nil && accounts[1].lanes.count == 2)
-        assert(parseAccounts(Data("garbage".utf8)).accounts.isEmpty)
     }
     #endif
 }
