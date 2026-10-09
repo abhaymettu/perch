@@ -115,25 +115,20 @@ enum PreviewHarness {
         }
     }
 
-    /// Owl frames sampled from the real motion curves, on a dark bar, to show the
-    /// animation survives the trim: a swivel, a blink and the alert startle.
+    /// Every frame the animator draws (60 a second) of every move, on a dark
+    /// bar. Each frame keeps its own canvas swatch, so an owl touching a
+    /// swatch's edge is an owl the menu bar would clip.
     private struct Filmstrip: View {
-        private static let moves: [(String, OwlMove, Bool)] = [
-            ("swivel", OwlMotion.swivel(toward: 1), false),
-            ("blink", OwlMotion.blink(double: false), false),
-            ("startle", OwlMotion.startle(), true),
-        ]
-
         var body: some View {
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(Self.moves, id: \.0) { name, move, alert in
-                    HStack(spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(OwlMotion.everyMove, id: \.name) { name, move, alert in
+                    HStack(spacing: 1) {
                         Text(name.uppercased())
                             .font(.system(size: 9, weight: .semibold, design: .monospaced))
                             .foregroundStyle(Color.white.opacity(0.4))
                             .frame(width: 58, alignment: .leading)
-                        ForEach(0..<7, id: \.self) { i in
-                            let t = move.duration * Double(i) / 6
+                        ForEach(0...Int(move.duration * 60), id: \.self) { frame in
+                            let t = min(Double(frame) / 60, move.duration)
                             Image(nsImage: MenuBarIcon.render(pose: move.pose(t), alert: alert, isDarkMenuBar: true))
                                 .background(Color(hex: 0x1B1B1F))
                         }
@@ -149,7 +144,7 @@ enum PreviewHarness {
         let gap: CGFloat = 26
         let scenarios = PreviewScenario.all
         let width = (UsagePopup.panelWidth + gap) * CGFloat(scenarios.count) + gap
-        let height: CGFloat = 720
+        let height: CGFloat = 800
 
         let content = VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .top, spacing: gap) {
