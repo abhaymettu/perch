@@ -65,14 +65,19 @@ final class MenuBarIconAnimator {
     }
 
     private func play(_ move: OwlMove) async {
-        var elapsed: TimeInterval = 0
+        // Each frame is posed at the time the clock says, not at a count of
+        // sleeps: a sleep plus a render runs past 1/60s, so counting drifted
+        // every move slow and stuttered it wherever the main thread was busy.
+        let start = ContinuousClock.now
 
-        while elapsed < move.duration {
+        while true {
             guard !Task.isCancelled else { return }
+
+            let elapsed = (ContinuousClock.now - start) / .seconds(1)
+            guard elapsed < move.duration else { break }
 
             draw(move.pose(elapsed))
             try? await Task.sleep(for: .seconds(Self.frameInterval))
-            elapsed += Self.frameInterval
         }
 
         guard !Task.isCancelled else { return }
