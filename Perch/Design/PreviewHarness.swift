@@ -10,11 +10,12 @@ struct PreviewScenario {
     var error: String?
     var stale = false
     var accounts: [AccountUsage] = []
+    var menuBarAccount: String?
 }
 
 extension PreviewScenario {
 
-    static let all: [PreviewScenario] = [normal, accounts, hot, stale, unavailable]
+    static let all: [PreviewScenario] = [accounts, mainPicked, secondStale, normal, hot, stale, unavailable]
 
     private static func resets(in hours: Double) -> Date {
         Date().addingTimeInterval(hours * 3600)
@@ -33,32 +34,44 @@ extension PreviewScenario {
         UsageLimit(kind: "weekly_scoped", percent: 64, severity: "normal", resetsAt: resets(in: 30), modelName: "Fable"),
     ])
 
-    /// The 2026-10-09 shape: acct2 signed in and driving the menu bar, acct1
-    /// signed out on this Mac with its last numbers, its 5h window already
-    /// reset, and a third account whose fetch failed (cached, stale).
-    static let accounts = PreviewScenario(name: "accounts", limits: normal.limits, accounts: [
-        AccountUsage(id: "acct2", email: "abhaynihal200@gmail.com", status: "live", reason: nil, windows: [
-            UsageLimit(kind: "session", percent: 8, severity: "normal", resetsAt: resets(in: 4.3), modelName: nil),
-            UsageLimit(kind: "weekly_all", percent: 2, severity: "normal", resetsAt: resets(in: 34.3), modelName: nil),
-            UsageLimit(kind: "weekly_scoped", percent: 1, severity: "normal", resetsAt: resets(in: 34.3), modelName: "Fable"),
-        ], observedAt: Date().addingTimeInterval(-90)),
-        AccountUsage(id: "acct3", email: "lab.research@example.com", status: "cached", reason: "keychain item unreadable", windows: [
-            UsageLimit(kind: "session", percent: 41, severity: "normal", resetsAt: resets(in: 1.5), modelName: nil),
-            UsageLimit(kind: "weekly_all", percent: 63, severity: "normal", resetsAt: resets(in: 50), modelName: nil),
-        ], observedAt: Date().addingTimeInterval(-25 * 60)),
-        AccountUsage(id: "acct1", email: "abhaynihal2004@gmail.com", status: "removed-needs-reauth",
-                     reason: "Signed out of ~/.claude 2026-10-09 10:05 CDT; not restored", windows: [
-            UsageLimit(kind: "session", percent: 4, severity: "normal", resetsAt: resets(in: -0.02), modelName: nil),
-            UsageLimit(kind: "weekly_all", percent: 99, severity: "normal", resetsAt: resets(in: 7.3), modelName: nil),
-        ], observedAt: Date().addingTimeInterval(-40 * 60)),
-    ])
+    /// The 2026-10-09 shape: the Second account signed in and driving the menu
+    /// bar, the Main account signed out on this Mac with its last numbers, its
+    /// 5h window already reset and no Fable window ever observed.
+    private static func pair(second: AccountUsage = second) -> [AccountUsage] { [second, main] }
+
+    private static let second = AccountUsage(id: "acct2", label: "Second account", email: "abhaynihal200@gmail.com",
+                                             status: "live", reason: nil, windows: [
+        UsageLimit(kind: "session", percent: 13, severity: "normal", resetsAt: resets(in: 3.9), modelName: nil),
+        UsageLimit(kind: "weekly_all", percent: 3, severity: "normal", resetsAt: resets(in: 34), modelName: nil),
+        UsageLimit(kind: "weekly_scoped", percent: 1, severity: "normal", resetsAt: resets(in: 34), modelName: "Fable"),
+    ], observedAt: Date().addingTimeInterval(-90))
+
+    private static let main = AccountUsage(id: "acct1", label: "Main account", email: "abhaynihal2004@gmail.com",
+                                           status: "removed-needs-reauth",
+                                           reason: "Signed out of ~/.claude 2026-10-09 10:05 CDT; not restored", windows: [
+        UsageLimit(kind: "session", percent: 4, severity: "normal", resetsAt: resets(in: -0.4), modelName: nil),
+        UsageLimit(kind: "weekly_all", percent: 99, severity: "normal", resetsAt: resets(in: 7), modelName: nil),
+    ], observedAt: Date().addingTimeInterval(-55 * 60))
+
+    static let accounts = PreviewScenario(name: "accounts", accounts: pair())
+
+    static let mainPicked = PreviewScenario(name: "main picked", accounts: pair(), menuBarAccount: "acct1")
+
+    /// The poller missed three polls while the Second account ran hot.
+    static let secondStale = PreviewScenario(name: "second stale", accounts: pair(second: AccountUsage(
+        id: "acct2", label: "Second account", email: "abhaynihal200@gmail.com", status: "live", reason: nil, windows: [
+            UsageLimit(kind: "session", percent: 84, severity: "warning", resetsAt: resets(in: 1.2), modelName: nil),
+            UsageLimit(kind: "weekly_all", percent: 41, severity: "normal", resetsAt: resets(in: 34), modelName: nil),
+            UsageLimit(kind: "weekly_scoped", percent: 22, severity: "normal", resetsAt: resets(in: 34), modelName: "Fable"),
+        ], observedAt: Date().addingTimeInterval(-22 * 60))))
 
     static let stale = PreviewScenario(name: "stale", limits: normal.limits, error: "Usage API returned 429", stale: true)
 
     static let unavailable = PreviewScenario(name: "unavailable", error: "Session expired — run /login")
 
     var monitor: LimitsMonitor {
-        LimitsMonitor(frozen: limits, error: error, stale: stale, accounts: accounts, account: accounts.isEmpty ? nil : "acct2")
+        LimitsMonitor(frozen: limits, error: error, stale: stale, accounts: accounts,
+                      account: accounts.isEmpty ? nil : "acct2", menuBarAccount: menuBarAccount)
     }
 }
 

@@ -246,8 +246,8 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// The title only changes when a fetch lands (every 180s), so this is a
-    /// cheap string compare once a second. The owl is awake while usage is
+    /// The title only changes when a fetch lands or state.json is rewritten,
+    /// so this is a stat and a cheap string compare once a second. The owl is awake while usage is
     /// readable and red when a window is critical or the fetch is failing;
     /// both setters ignore an unchanged value.
     @MainActor
@@ -256,6 +256,8 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
+                // Title and cards both follow state.json; it is re-read the second the poller writes it.
+                self.usage.reloadAccountsIfChanged()
                 self.iconAnimator.setAwake(self.usage.owlAwake)
                 self.iconAnimator.setAlert(self.usage.owlAlert)
                 self.updateQuotaTitle()
