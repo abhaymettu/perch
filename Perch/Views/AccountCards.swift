@@ -11,7 +11,7 @@ struct AccountCards: View {
         TimelineView(.periodic(from: .now, by: 15)) { context in
             VStack(spacing: 8) {
                 ForEach(monitor.accounts) { account in
-                    AccountCard(account: account, drivesMenuBar: account.id == monitor.account, now: context.date)
+                    AccountCard(account: account, drivesMenuBar: account.id == monitor.menuBarAccountID, now: context.date)
                 }
             }
         }
@@ -23,8 +23,10 @@ private struct AccountCard: View {
     let drivesMenuBar: Bool
     let now: Date
 
-    /// Three missed polls: the same rule pocket-herdr and lane-ledger use.
-    private static let staleAfter: TimeInterval = 15 * 60
+    /// The same three windows on every card, so SESSION, WEEK and FABLE line
+    /// up from card to card. An account with no Fable window observed gets a
+    /// dash there, never a 0.
+    private static let slots: [(kind: String, model: String?)] = [("session", nil), ("weekly_all", nil), ("weekly_scoped", "Fable")]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -37,14 +39,14 @@ private struct AccountCard: View {
                     .lineLimit(2)
                     .padding(.top, 10)
             } else {
-                // Three fixed slots, so SESSION and WEEK line up from card to card
-                // whether or not an account has a Fable window.
                 HStack(alignment: .top, spacing: 13) {
-                    ForEach(0..<3, id: \.self) { slot in
-                        if slot < account.windows.count {
-                            UsageColumn(limit: account.windows[slot], now: now, muted: account.status != "live")
+                    ForEach(Self.slots, id: \.kind) { slot in
+                        if let limit = account.window(slot.kind) {
+                            UsageColumn(limit: limit, now: now, muted: account.status != "live")
                         } else {
-                            Color.clear.frame(maxWidth: .infinity, maxHeight: 1)
+                            UsageColumn(limit: UsageLimit(kind: slot.kind, percent: 0, severity: "normal",
+                                                          resetsAt: nil, modelName: slot.model),
+                                        now: now, muted: true, missing: true)
                         }
                     }
                 }
@@ -67,23 +69,17 @@ private struct AccountCard: View {
         .padding(.bottom, 9)
         .frame(maxWidth: .infinity, alignment: .leading)
         .perchGlassCard(radius: 11)
-        .help(account.reason ?? "")
+        .help([account.email, account.reason].compactMap { $0 }.joined(separator: "\n"))
         .accessibilityElement(children: .combine)
     }
 
     private var header: some View {
         HStack(spacing: 6) {
-            Text(account.id)
+            Text(account.name)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(account.isSignedOut ? Color.inkMuted : Color.ink)
-
-            if let name = account.email?.split(separator: "@").first {
-                Text(name)
-                    .font(.system(size: 11))
-                    .foregroundStyle(Color.inkMuted)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
+                .lineLimit(1)
+                .truncationMode(.middle)
 
             Spacer(minLength: 6)
 
@@ -98,13 +94,14 @@ private struct AccountCard: View {
         switch account.status {
         case "live":                 ("Active", .healthy)
         case "cached":               ("Cached", .working)
-        case "removed-needs-reauth": ("Signed out on this Mac", .warning)
+        case "removed-needs-reauth": ("Signed out on this Mac", .unchecked)
         default:                     ("Unavailable", .warning)
         }
     }
 
+    /// Cached and signed-out cards already say so in their status word.
     private var isStale: Bool {
-        account.status == "live" && account.observedAt.map { now.timeIntervalSince($0) > Self.staleAfter } ?? true
+        account.status == "live" && account.isStale(at: now)
     }
 
     /// "Observed 10:45 · 3m ago · menu bar". Clock time today, date before that.
@@ -137,17 +134,18 @@ private struct AccountCard: View {
     }()
 }
 
-/// Title, percent, meter, reset: one window. A window whose reset has passed
-/// shows a dash and an empty meter, never its old number as if it were current.
+/// Title, percent, meter, reset: one window. A window whose reset has passed,
+/// or that was never observed, shows a dash and an empty meter, never a number.
 struct UsageColumn: View {
     let limit: UsageLimit
     var now = Date()
     var muted = false
+    var missing = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let passed = limit.hasReset(at: now)
+        let passed = missing || limit.hasReset(at: now)
 
         VStack(alignment: .leading, spacing: 0) {
             Text(limit.shortTitle)
@@ -189,10 +187,11 @@ struct UsageColumn: View {
         .animation(reduceMotion ? nil : .snappy(duration: 0.35), value: limit.percent)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(limit.shortTitle)
-        .accessibilityValue(passed ? "reset passed" : "\(limit.percent) percent, \(resetText(passed: false))")
+        .accessibilityValue(passed ? (missing ? "not observed" : "reset passed") : "\(limit.percent) percent, \(resetText(passed: false))")
     }
 
     private func resetText(passed: Bool) -> String {
+        if missing { return "Not observed" }
         if passed { return "Reset passed" }
         let countdown = limit.countdown(from: now)
         return countdown.isEmpty ? "" : "Resets in \(countdown)"

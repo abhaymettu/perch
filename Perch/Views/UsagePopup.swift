@@ -13,13 +13,14 @@ struct UsagePopup: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if monitor.accounts.count > 1 {
+            if monitor.isMultiAccount {
                 // Several accounts: one card each, replacing the single strip
                 // that would only repeat the menu bar account.
                 AccountCards(monitor: monitor)
                     .padding(.horizontal, 9)
                     .padding(.top, 9)
-                    .padding(.bottom, 10)
+                    .padding(.bottom, 4)
+                menuBarPicker
             } else if monitor.limits.isEmpty {
                 placeholder
             } else {
@@ -73,6 +74,45 @@ struct UsagePopup: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 17)
             .padding(.vertical, 22)
+    }
+
+    /// Which account's numbers the menu bar title carries. The only setting
+    /// in the panel; the choice persists across launches.
+    private var menuBarPicker: some View {
+        HStack(spacing: 6) {
+            Text("Menu bar shows")
+                .font(.system(size: 12))
+                .foregroundStyle(Color.inkMuted)
+
+            Spacer(minLength: 6)
+
+            Menu {
+                Picker("Menu bar shows", selection: Binding(
+                    get: { monitor.menuBarAccountID ?? "" },
+                    set: { monitor.chooseMenuBarAccount($0) }
+                )) {
+                    ForEach(monitor.accounts) { account in
+                        Text(account.isSignedOut ? "\(account.name) · signed out" : account.name)
+                            .tag(account.id)
+                    }
+                }
+                .pickerStyle(.inline)
+                .labelsHidden()
+            } label: {
+                Text(monitor.selectedAccount?.name ?? "Account not found")
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.visible)
+            .fixedSize()
+            .accessibilityLabel("Menu bar shows")
+            .accessibilityValue(monitor.selectedAccount?.name ?? "Account not found")
+        }
+        // The leading edge meets the cards' text; the borderless menu carries
+        // about 3 pt of its own trailing inset, taken back so its chevron does too.
+        .padding(.leading, 21)
+        .padding(.trailing, 18)
+        .frame(height: 34)
     }
 
     private var footer: some View {
