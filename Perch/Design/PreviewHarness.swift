@@ -14,6 +14,10 @@ struct PreviewScenario {
     var cronJobs: [CronJob] = []
     var limits: [UsageLimit] = []
 
+    /// perch-usage's per-account rows, and which account `limits` belongs to.
+    var accounts: [AccountUsage] = []
+    var account: String?
+
     /// Settings and About get a column each, otherwise they are only ever seen
     /// by clicking through the live panel — which is how they stayed on the
     /// pre-redesign look for three rounds.
@@ -102,6 +106,31 @@ extension PreviewScenario {
             UsageLimit(kind: "weekly_scoped", percent: 41, severity: "normal",
                        resetsAt: resets(in: 71), modelName: "Fable")
         ],
+        // One account per non-live state, each with a window whose reset has
+        // already passed, so the dash path renders next to real numbers.
+        accounts: [
+            AccountUsage(id: "acct1", email: "personal.archive@example.com", status: "removed-needs-reauth",
+                         reason: "token revoked",
+                         session: UsageLimit(kind: "session", percent: 4, severity: "normal",
+                                             resetsAt: resets(in: -0.2), modelName: nil),
+                         weekly: UsageLimit(kind: "weekly_all", percent: 99, severity: "normal",
+                                            resetsAt: resets(in: 7.5), modelName: nil),
+                         observedAt: ago(0.4), lanes: []),
+            AccountUsage(id: "acct2", email: "dev.workstation@example.com", status: "live", reason: nil,
+                         session: UsageLimit(kind: "session", percent: 7, severity: "normal",
+                                             resetsAt: resets(in: 2.4), modelName: nil),
+                         weekly: UsageLimit(kind: "weekly_all", percent: 45, severity: "normal",
+                                            resetsAt: resets(in: 71), modelName: nil),
+                         observedAt: ago(0.02), lanes: ["api", "docs"]),
+            AccountUsage(id: "acct3", email: "lab.research@example.com", status: "cached",
+                         reason: "HTTPError: 429",
+                         session: UsageLimit(kind: "session", percent: 37, severity: "normal",
+                                             resetsAt: resets(in: -0.5), modelName: nil),
+                         weekly: UsageLimit(kind: "weekly_all", percent: 52, severity: "normal",
+                                            resetsAt: resets(in: 50), modelName: nil),
+                         observedAt: ago(3.2), lanes: ["infra"])
+        ],
+        account: "acct2",
         bridgeTasks: [
             BridgeTask(id: "w1K:t1", workspaceId: "w1K", workspaceLabel: "Kalshi",
                        tabLabel: "reflex-worker", statusText: "✳ Reflex worker Phase A implementation",
@@ -221,7 +250,7 @@ enum PreviewHarness {
         // Tall enough for the fullest panel, and no taller than that: the grey
         // left under a short panel is the point — it is how a round shows
         // whether the panel actually sizes to its content.
-        let height = MenuBarView.maxListHeight + 260
+        let height = MenuBarView.maxListHeight + 540
 
         let content = VStack(spacing: 0) {
             HStack(alignment: .top, spacing: gap) {
@@ -269,17 +298,22 @@ enum PreviewHarness {
         )
         window.title = "Perch — UI preview"
         window.contentView = NSHostingView(rootView: content)
-        window.center()
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
         Self.window = window
 
-        if let path = ProcessInfo.processInfo.environment["PERCH_UI_SHOT"] {
-            // Let the material and the owl's first frame settle.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                write(window, to: path)
-                NSApp.terminate(nil)
-            }
+        guard let path = ProcessInfo.processInfo.environment["PERCH_UI_SHOT"] else {
+            NSApp.setActivationPolicy(.regular)
+            window.center()
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        // A shot never orders the window in or activates: it runs while he is
+        // using the Mac, and `cacheDisplay` draws an offscreen window fine.
+        // Let the material and the owl's first frame settle.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            write(window, to: path)
+            NSApp.terminate(nil)
         }
     }
 

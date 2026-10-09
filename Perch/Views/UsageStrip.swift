@@ -28,6 +28,16 @@ struct UsageStrip: View {
                         .padding(.bottom, 8)
                     freshness
                 }
+
+                // With one account the columns above already say it all.
+                if monitor.accounts.count > 1 {
+                    PerchHairline()
+                        .padding(.top, 11)
+                        .padding(.bottom, 9)
+                    VStack(alignment: .leading, spacing: 9) {
+                        ForEach(monitor.accounts) { accountRow($0) }
+                    }
+                }
             }
             .padding(.horizontal, 12)
             .padding(.top, 12)
@@ -57,6 +67,13 @@ struct UsageStrip: View {
             Text("Usage")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Color.ink)
+
+            // Which account the columns and the menu bar number are.
+            if monitor.accounts.count > 1, let owner = monitor.account {
+                Text(owner)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.inkMuted)
+            }
 
             Spacer(minLength: 4)
 
@@ -179,6 +196,107 @@ struct UsageStrip: View {
         }
         if monitor.isStale { parts.append("Cached") }
         if let error = monitor.error { parts.append(error) }
+        if monitor.accounts.count > 1 {
+            parts += monitor.accounts.map {
+                "\($0.id) \($0.status), session \(windowValue($0.session)), week \(windowValue($0.weekly))"
+            }
+        }
         return parts.joined(separator: ", ")
+    }
+
+    // MARK: - Accounts
+
+    /// Name, status, each window on its own clock, and when it was seen.
+    private func accountRow(_ account: AccountUsage) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 5) {
+                Text(account.id)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.ink)
+
+                if let name = account.email?.split(separator: "@").first {
+                    Text(name)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.inkMuted)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 6)
+
+                // Live is the quiet default; anything else names itself.
+                if let status = statusLabel(account.status) {
+                    PerchStateLabel(word: status.word, state: status.mark)
+                        .fixedSize()
+                        .help(account.reason ?? status.word)
+                }
+            }
+            .frame(height: 15)
+
+            HStack(spacing: 10) {
+                accountWindow("SESSION", account.session)
+                accountWindow("WEEK", account.weekly)
+            }
+            .frame(height: 16)
+
+            Text(observedText(account))
+                .font(.system(size: 10))
+                .foregroundStyle(Color.inkMuted)
+                .monospacedDigit()
+                .frame(height: 13)
+                .help(account.lanes.joined(separator: ", "))
+        }
+    }
+
+    private func statusLabel(_ status: String) -> (word: String, mark: PerchMark)? {
+        switch status {
+        case "live":                 nil
+        case "cached":               ("cached", .working)
+        case "removed-needs-reauth": ("removed · needs reauth", .warning)
+        default:                     (status, .warning)
+        }
+    }
+
+    /// "SESSION 7% in 2h 24m". A window whose reset has passed shows a dash:
+    /// the number was observed in a window that no longer exists.
+    private func accountWindow(_ title: String, _ limit: UsageLimit?) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text(title)
+                .font(.system(size: 10))
+                .foregroundStyle(Color.inkMuted)
+
+            Text(limit.map { $0.hasReset ? "—" : "\($0.percent)%" } ?? "—")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(limit?.hasReset == false ? Color.ink : Color.inkMuted)
+                .monospacedDigit()
+
+            if let limit, limit.resetsAt != nil {
+                Text(limit.hasReset ? "reset passed" : "in \(limit.countdown())")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.inkMuted)
+                    .monospacedDigit()
+            }
+        }
+        .lineLimit(1)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func windowValue(_ limit: UsageLimit?) -> String {
+        guard let limit else { return "no data" }
+        return limit.hasReset ? "reset passed" : "\(limit.percent) percent, \(resetText(for: limit))"
+    }
+
+    /// Clock time today, date and time before that, so a stale row reads stale.
+    private func observedText(_ account: AccountUsage) -> String {
+        var text = "not yet observed"
+        if let observedAt = account.observedAt {
+            let formatter = DateFormatter()
+            formatter.dateFormat = Calendar.current.isDateInToday(observedAt) ? "HH:mm" : "MMM d HH:mm"
+            text = "observed \(formatter.string(from: observedAt))"
+        }
+        switch account.lanes.count {
+        case 0:  return text
+        case 1:  return text + " · 1 lane"
+        default: return text + " · \(account.lanes.count) lanes"
+        }
     }
 }
