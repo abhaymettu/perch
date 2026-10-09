@@ -15,7 +15,7 @@ struct PreviewScenario {
 
 extension PreviewScenario {
 
-    static let all: [PreviewScenario] = [accounts, mainPicked, secondStale, normal, hot, stale, unavailable]
+    static let all: [PreviewScenario] = [accounts, mainPicked, mainSignedOut, secondStale, normal, hot, unavailable]
 
     private static func resets(in hours: Double) -> Date {
         Date().addingTimeInterval(hours * 3600)
@@ -34,21 +34,28 @@ extension PreviewScenario {
         UsageLimit(kind: "weekly_scoped", percent: 64, severity: "normal", resetsAt: resets(in: 30), modelName: "Fable"),
     ])
 
-    /// The 2026-10-09 shape: the Second account signed in and driving the menu
-    /// bar, the Main account signed out on this Mac with its last numbers, its
-    /// 5h window already reset and no Fable window ever observed.
-    private static func pair(second: AccountUsage = second) -> [AccountUsage] { [second, main] }
+    /// The 2026-10-09 11:40 shape: both accounts signed in, the Second account
+    /// the default. Main's 5h window is fresh at 0%, its week nearly spent.
+    private static func pair(second: AccountUsage = second, main: AccountUsage = main) -> [AccountUsage] { [second, main] }
 
     private static let second = AccountUsage(id: "acct2", label: "Second account", email: "abhaynihal200@gmail.com",
                                              status: "live", reason: nil, windows: [
-        UsageLimit(kind: "session", percent: 13, severity: "normal", resetsAt: resets(in: 3.9), modelName: nil),
-        UsageLimit(kind: "weekly_all", percent: 3, severity: "normal", resetsAt: resets(in: 34), modelName: nil),
-        UsageLimit(kind: "weekly_scoped", percent: 1, severity: "normal", resetsAt: resets(in: 34), modelName: "Fable"),
+        UsageLimit(kind: "session", percent: 15, severity: "normal", resetsAt: resets(in: 3.3), modelName: nil),
+        UsageLimit(kind: "weekly_all", percent: 3, severity: "normal", resetsAt: resets(in: 33.3), modelName: nil),
+        UsageLimit(kind: "weekly_scoped", percent: 1, severity: "normal", resetsAt: resets(in: 33.3), modelName: "Fable"),
     ], observedAt: Date().addingTimeInterval(-90))
 
     private static let main = AccountUsage(id: "acct1", label: "Main account", email: "abhaynihal2004@gmail.com",
-                                           status: "removed-needs-reauth",
-                                           reason: "Signed out of ~/.claude 2026-10-09 10:05 CDT; not restored", windows: [
+                                           status: "live", reason: nil, windows: [
+        UsageLimit(kind: "session", percent: 0, severity: "normal", resetsAt: resets(in: 4.9), modelName: nil),
+        UsageLimit(kind: "weekly_all", percent: 99, severity: "critical", resetsAt: resets(in: 6.3), modelName: nil),
+        UsageLimit(kind: "weekly_scoped", percent: 26, severity: "normal", resetsAt: resets(in: 6.3), modelName: "Fable"),
+    ], observedAt: Date().addingTimeInterval(-90))
+
+    /// Before the re-login: signed out on this Mac, last numbers kept, no Fable ever observed.
+    private static let mainSignedOutRow = AccountUsage(id: "acct1", label: "Main account", email: "abhaynihal2004@gmail.com",
+                                                       status: "removed-needs-reauth",
+                                                       reason: "Signed out of ~/.claude 2026-10-09 10:05 CDT; not restored", windows: [
         UsageLimit(kind: "session", percent: 4, severity: "normal", resetsAt: resets(in: -0.4), modelName: nil),
         UsageLimit(kind: "weekly_all", percent: 99, severity: "normal", resetsAt: resets(in: 7), modelName: nil),
     ], observedAt: Date().addingTimeInterval(-55 * 60))
@@ -56,6 +63,9 @@ extension PreviewScenario {
     static let accounts = PreviewScenario(name: "accounts", accounts: pair())
 
     static let mainPicked = PreviewScenario(name: "main picked", accounts: pair(), menuBarAccount: "acct1")
+
+    static let mainSignedOut = PreviewScenario(name: "main signed out", accounts: pair(main: mainSignedOutRow),
+                                               menuBarAccount: "acct1")
 
     /// The poller missed three polls while the Second account ran hot.
     static let secondStale = PreviewScenario(name: "second stale", accounts: pair(second: AccountUsage(
