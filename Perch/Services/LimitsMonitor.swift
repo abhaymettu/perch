@@ -94,8 +94,9 @@ final class LimitsMonitor {
     #if DEBUG
     /// Seeded and inert, for the preview harness. Real data is `normal` almost
     /// all the time, so warning and critical would otherwise ship unrendered.
-    init(frozen limits: [UsageLimit], model: String? = "opus-5", error: String? = nil) {
+    init(frozen limits: [UsageLimit], model: String? = "opus-5", error: String? = nil, stale: Bool = false) {
         self.limits = limits
+        self.isStale = stale
         self.model = model
         self.error = error
     }
@@ -256,26 +257,28 @@ final class LimitsMonitor {
 
     // MARK: - Menu bar
 
-    /// The session window always leads, since that is what you are spending
-    /// against right now. A hot weekly window still shows, but as the trailing
-    /// "· W nn%" rather than by taking over the bar.
-    var lead: UsageLimit? {
-        limits.first { $0.kind == "session" } ?? limits.max { $0.percent < $1.percent }
+    /// The two windows this build shows: the session block and the weekly
+    /// account total. Model-scoped weekly windows are left out.
+    var headline: [UsageLimit] {
+        limits.filter { $0.kind == "session" || $0.kind == "weekly_all" }
     }
 
-    /// " 4% · W 44%", and the reset countdown too once the lead is hot enough
-    /// that knowing when it clears changes what you do next.
-    var menuBarTitle: String {
-        guard let lead else { return "" }
+    /// Awake while there is a reading to watch; dozing before the first fetch.
+    var owlAwake: Bool { !limits.isEmpty }
 
-        var title = " \(lead.percent)%"
-        if lead.severity != "normal" {
-            title += " \(lead.countdown())"
+    /// Red owl: any window critical, or the fetch is failing.
+    var owlAlert: Bool { error != nil || limits.contains { $0.severity == "critical" } }
+
+    /// "S 4% · W 44% used". Percent used, never remaining. A window the payload
+    /// lacks reads "n/a", and with no successful fetch yet it says so rather
+    /// than guessing 0. "stale" is appended when the last fetch failed.
+    var menuBarTitle: String {
+        guard !headline.isEmpty else { return error == nil ? "Usage …" : "Usage unavailable" }
+
+        func part(_ label: String, _ kind: String) -> String {
+            headline.first { $0.kind == kind }.map { "\(label) \($0.percent)%" } ?? "\(label) n/a"
         }
-        if let weekly = limits.first(where: { $0.kind == "weekly_all" && $0.id != lead.id }) {
-            title += " · W \(weekly.percent)%"
-        }
-        return title
+        return "\(part("S", "session")) · \(part("W", "weekly_all")) used" + (isStale ? " · stale" : "")
     }
 
     #if DEBUG
@@ -299,18 +302,22 @@ final class LimitsMonitor {
         monitor.timer?.invalidate()
 
         monitor.limits = parsed
-        assert(monitor.lead?.kind == "session", "session should lead below 75%")
-        assert(monitor.menuBarTitle == " 4% · W 44%", "got '\(monitor.menuBarTitle)'")
+        assert(monitor.headline.count == 2, "scoped window leaked into headline")
+        assert(monitor.menuBarTitle == "S 4% · W 44% used", "got '\(monitor.menuBarTitle)'")
 
-        // The session keeps the lead even when another window is critical, and
-        // a lead that is no longer "normal" carries its countdown.
+        monitor.limits = [parsed[1]]
+        assert(monitor.menuBarTitle == "S n/a · W 44% used", "got '\(monitor.menuBarTitle)'")
+
+        monitor.limits = []
+        assert(monitor.menuBarTitle == "Usage …" || monitor.menuBarTitle == "Usage unavailable",
+               "empty limits must not read as 0%: '\(monitor.menuBarTitle)'")
+
         let inTwoHours = Date().addingTimeInterval(2 * 3600 + 60)
-        monitor.limits[1] = UsageLimit(kind: "weekly_all", percent: 91, severity: "critical", resetsAt: inTwoHours, modelName: nil)
-        assert(monitor.lead?.kind == "session", "session lost the lead to a hot weekly")
-        assert(monitor.menuBarTitle == " 4% · W 91%", "got '\(monitor.menuBarTitle)'")
-
-        monitor.limits[0] = UsageLimit(kind: "session", percent: 96, severity: "critical", resetsAt: inTwoHours, modelName: nil)
-        assert(monitor.menuBarTitle == " 96% 2h 1m · W 91%", "got '\(monitor.menuBarTitle)'")
+        monitor.limits = [
+            UsageLimit(kind: "session", percent: 96, severity: "critical", resetsAt: inTwoHours, modelName: nil),
+            parsed[1],
+        ]
+        assert(monitor.menuBarTitle == "S 96% · W 44% used", "got '\(monitor.menuBarTitle)'")
 
         // Both units, and the zero one dropped.
         let cases: [(TimeInterval, String)] = [
