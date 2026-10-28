@@ -89,9 +89,11 @@ struct AccountUsage: Identifiable, Equatable {
     /// Three missed polls: the same rule pocket-herdr and lane-ledger use.
     static let staleAfter: TimeInterval = 15 * 60
 
-    /// Not fetched live within the last 15 minutes, so the numbers may have moved.
+    /// Not read live within the last 15 minutes, so the numbers may have moved.
+    /// Age only, not status: one poll 429'd by the shared usage endpoint marks the
+    /// row cached while its numbers are still minutes old (acct2, 2026-10-27).
     func isStale(at now: Date) -> Bool {
-        status != "live" || observedAt.map { now.timeIntervalSince($0) > Self.staleAfter } ?? true
+        observedAt.map { now.timeIntervalSince($0) > Self.staleAfter } ?? true
     }
 }
 
@@ -536,6 +538,15 @@ final class LimitsMonitor {
         let picked2 = LimitsMonitor(frozen: parsed, accounts: both.accounts, account: "acct2", menuBarAccount: "acct2")
         assert(picked1.menuBarTitle(at: early) == "S 4% · W 99% used", "got '\(picked1.menuBarTitle(at: early))'")
         assert(picked2.menuBarTitle(at: early) == "S 8% · W 2% used", "got '\(picked2.menuBarTitle(at: early))'")
+
+        // One missed poll is not stale: a cached row 5 minutes old reads fresh, 16 minutes old does not.
+        let cached = parseAccounts(Data(state.replacingOccurrences(of: "\"status\":\"live\"", with: "\"status\":\"cached\"").utf8))
+        let missed = LimitsMonitor(frozen: parsed, accounts: cached.accounts, account: "acct2", menuBarAccount: "acct2")
+        let observed = ISO8601DateFormatter.usage.date(from: "2026-10-09T15:40:51.3+00:00")!
+        assert(missed.selectedAccount?.status == "cached")
+        assert(missed.menuBarTitle(at: observed.addingTimeInterval(5 * 60)) == "S 8% · W 2% used",
+               "got '\(missed.menuBarTitle(at: observed.addingTimeInterval(5 * 60)))'")
+        assert(missed.menuBarTitle(at: observed.addingTimeInterval(16 * 60)) == "S 8% · W 2% used · stale")
     }
     #endif
 }
