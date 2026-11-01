@@ -13,6 +13,7 @@ final class MenuBarIconAnimator {
     private var restingPose = OwlPose.dozing
 
     private static let frameInterval: TimeInterval = 1.0 / 60.0
+    static let idleKey = "owlIdles"
 
     init(button: NSStatusBarButton?) {
         self.button = button
@@ -50,9 +51,24 @@ final class MenuBarIconAnimator {
         while !Task.isCancelled {
             try? await Task.sleep(for: .seconds(.random(in: OwlMotion.restInterval)))
             guard !Task.isCancelled else { return }
+            guard shouldIdle else { continue }
             await play(OwlMotion.random())
         }
     }
+
+    /// Idle motion is filler, so it is the first thing to go: when asked, under
+    /// Reduce Motion, and whenever nobody can see the menu bar (a full-screen
+    /// app, an auto-hidden bar, a sleeping display), where each frame is a
+    /// wakeup spent on nothing. Startle is not filler and always plays.
+    private var shouldIdle: Bool {
+        UserDefaults.standard.object(forKey: Self.idleKey) as? Bool ?? true
+            && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+            && (button?.window?.occlusionState.contains(.visible) == true || Self.benchAssumesVisible)
+    }
+
+    /// `Scripts/bench.py` hides the status item so a run never shows up in
+    /// the menu bar, and needs the owl to idle anyway to measure what it costs.
+    private static let benchAssumesVisible = ProcessInfo.processInfo.environment["PERCH_BENCH_OWL_VISIBLE"] != nil
 
     /// Cuts the current rest short so a reaction lands now, then hands the owl
     /// back to its idle behaviours.

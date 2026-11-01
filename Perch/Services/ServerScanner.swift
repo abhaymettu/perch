@@ -23,7 +23,7 @@ extension AppState {
         return await withTaskGroup(of: DevServer?.self) { group in
             for port in uniquePorts {
                 group.addTask {
-                    guard let info = await ProcessResolver.resolve(pid: port.pid) else {
+                    guard let info = ProcessResolver.resolve(pid: port.pid) else {
                         return nil
                     }
                     let framework = ProcessResolver.detectFramework(from: info)

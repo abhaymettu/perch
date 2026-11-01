@@ -9,10 +9,15 @@ while with the panel closed, and prints one JSON line:
                  scanner it spawned (ps, lsof, simctl, launchctl, crontab)
   cpu_self_pct   Perch's own process only, steady state (after the first 10 s)
   footprint_mb   physical footprint at the end of the run (what Activity Monitor shows)
-  wakeups_per_s  idle wakeups per second, averaged over the run
+  wakeups_per_s  wakeups per second (proc_pid_rusage), steady state
 
-Usage: Scripts/bench.py [seconds] [--no-build]
+The status item is hidden, which on its own would stop the owl's idle motion
+(Perch skips it when nobody can see the menu bar). --owl measures the owl
+idling as if the menu bar were on screen.
+
+Usage: Scripts/bench.py [seconds] [--owl] [--no-build]
 """
+import ctypes
 import json
 import os
 import re
@@ -58,16 +63,22 @@ def footprint_mb(pid):
     return round(float(m.group(1)) * scale, 1)
 
 
-def wakeups_per_s(pid, seconds):
-    samples = max(2, seconds // 10)
-    out = subprocess.run(
-        ["top", "-l", str(samples + 1), "-s", "10", "-pid", str(pid), "-stats", "pid,idlew"],
-        capture_output=True, text=True,
-    ).stdout
-    counts = [int(m.group(1)) for m in re.finditer(rf"^{pid}\s+(\d+)", out, re.M)]
-    # The first sample counts from process start, not over an interval.
-    counts = counts[1:]
-    return round(sum(counts) / (10 * len(counts)), 2) if counts else None
+class RusageInfoV2(ctypes.Structure):
+    _fields_ = [("uuid", ctypes.c_uint8 * 16)] + [(name, ctypes.c_uint64) for name in (
+        "user_time", "system_time", "pkg_idle_wkups", "interrupt_wkups", "pageins", "wired_size",
+        "resident_size", "phys_footprint", "proc_start_abstime", "proc_exit_abstime", "child_user_time",
+        "child_system_time", "child_pkg_idle_wkups", "child_interrupt_wkups", "child_pageins",
+        "child_elapsed_abstime", "diskio_bytesread", "diskio_byteswritten")]
+
+
+def wakeups(pid):
+    """Kernel wakeup counters for the process (timer and interrupt wakeups
+    that took a CPU out of idle, plus every other interrupt wakeup)."""
+    info = RusageInfoV2()
+    libproc = ctypes.CDLL("/usr/lib/libproc.dylib")
+    if libproc.proc_pid_rusage(pid, 2, ctypes.byref(info)) != 0:
+        return None
+    return info.pkg_idle_wkups + info.interrupt_wkups
 
 
 def main():
@@ -80,11 +91,15 @@ def main():
     defaults("NSStatusItem Visible Perch", "-bool", "false")
 
     launched = time.monotonic()
-    proc = subprocess.Popen([APP], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    env = dict(os.environ)
+    if "--owl" in sys.argv:
+        env["PERCH_BENCH_OWL_VISIBLE"] = "1"
+    proc = subprocess.Popen([APP], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     time.sleep(10)  # launch and the first scan are not steady state
-    start_cpu, start = cpu_seconds(proc.pid), time.monotonic()
+    start_cpu, start, start_wake = cpu_seconds(proc.pid), time.monotonic(), wakeups(proc.pid)
 
-    wake = wakeups_per_s(proc.pid, seconds)
+    time.sleep(seconds)
+    wake = (wakeups(proc.pid) - start_wake) / (time.monotonic() - start)
     self_cpu = cpu_seconds(proc.pid) - start_cpu
     elapsed = time.monotonic() - start
     foot = footprint_mb(proc.pid)
@@ -99,10 +114,11 @@ def main():
 
     print(json.dumps({
         "seconds": round(elapsed),
+        "owl_idling": "--owl" in sys.argv,
         "cpu_pct": round(100 * (usage.ru_utime + usage.ru_stime) / lifetime, 2),
         "cpu_self_pct": round(100 * self_cpu / elapsed, 2),
         "footprint_mb": foot,
-        "wakeups_per_s": wake,
+        "wakeups_per_s": round(wake, 2),
     }))
 
 

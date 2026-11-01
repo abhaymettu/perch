@@ -197,7 +197,7 @@ enum ClaudeScanner {
         let pid = root.process.pid
         guard let startedAt = ProcessResolver.startTime(of: pid) else { return nil }
 
-        let directory = await ProcessResolver.workingDirectory(pid: pid)
+        let directory = ProcessResolver.workingDirectory(pid: pid)
 
         let name: String
         if root.rawName.isEmpty {

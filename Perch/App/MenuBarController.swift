@@ -36,6 +36,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     // measures its own content instead and reports it here via
     // `.perchPanelLayoutChanged`'s userInfo.
     private var lastReportedHeight: CGFloat = MenuBarView.minHeight
+    private var openedAt = Date.distantPast
     @AppStorage("hasLaunchedBefore") private var hasLaunchedBefore = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -81,7 +82,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         // `.intrinsicContentSize` leaves the window stale. `syncPanelHeight`
         // pulls the size instead.
         let hostingController = NSHostingController(rootView:
-            MenuBarView()
+            PanelRoot()
                 .environment(appState)
                 .environment(scrollActivity)
         )
@@ -117,11 +118,15 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(
             forName: .perchPanelLayoutChanged, object: nil, queue: .main
         ) { [weak self] notification in
+            guard let self else { return }
             if let height = notification.userInfo?["height"] as? CGFloat {
-                self?.lastReportedHeight = height
+                self.lastReportedHeight = height
             }
+            // The view tree is built as the panel opens, so its first height
+            // lands a frame later. That one snaps; only later changes animate.
+            let settled = Date().timeIntervalSince(self.openedAt) > 0.25
             DispatchQueue.main.async {
-                self?.syncPanelHeight()
+                self.syncPanelHeight(animated: settled)
             }
         }
 
@@ -165,6 +170,8 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         // (closed sections, main page) lands its own corrected height
         // asynchronously through .perchPanelLayoutChanged, same as any other
         // in-panel layout change.
+        openedAt = Date()
+        appState.setPanelOpen(true)
         NotificationCenter.default.post(name: .perchPanelWillOpen, object: nil)
 
         syncPanelHeight(animated: false)
@@ -215,6 +222,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
             guard let self, self.panel.alphaValue == 0 else { return }
             self.panel.orderOut(nil)
             self.panel.alphaValue = 1
+            self.appState.setPanelOpen(false)
         })
 
         removeMonitors()
@@ -224,6 +232,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     /// app, so the panel should just be gone rather than mid-animation.
     private func hardClosePanel() {
         removeMonitors()
+        appState.setPanelOpen(false)
         panel.orderOut(nil)
         panel.alphaValue = 1
     }
@@ -282,6 +291,19 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
                 self.updateQuotaTitle()
                 self.syncPanelHeight()
             }
+        }
+    }
+}
+
+/// The panel's views exist only while it is open. Kept alive behind a closed
+/// panel, every poll still animated their counters and redrew their text off
+/// screen, which cost more CPU and memory than the scans themselves.
+private struct PanelRoot: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        if appState.isPanelOpen {
+            MenuBarView()
         }
     }
 }

@@ -9,20 +9,12 @@ struct ResolvedProcess {
 enum ProcessResolver {
     // MARK: - Process Details
 
-    static func resolve(pid: Int) async -> ResolvedProcess? {
-        async let argsResult = Shell.run("/bin/ps", arguments: ["-p", "\(pid)", "-o", "args="])
-        async let cwdResult = Shell.run("/usr/sbin/lsof", arguments: ["-d", "cwd", "-a", "-p", "\(pid)", "-Fn"])
-
-        guard let args = await argsResult?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !args.isEmpty else { return nil }
-
-        let cwd = await parseCWD(cwdResult ?? "")
-
-        return ResolvedProcess(
-            pid: pid,
-            arguments: args,
-            workingDirectory: cwd
-        )
+    /// Read from the kernel rather than by spawning `ps` and `lsof` per pid:
+    /// on a machine with a hundred sessions that fan-out was most of Perch's cost.
+    static func resolve(pid: Int) -> ResolvedProcess? {
+        let args = launchInfo(pid: pid).argv.joined(separator: " ")
+        guard !args.isEmpty else { return nil }
+        return ResolvedProcess(pid: pid, arguments: args, workingDirectory: workingDirectory(pid: pid))
     }
 
     // MARK: - Real argv
@@ -96,7 +88,7 @@ enum ProcessResolver {
             guard let current = candidate else { return nil }
 
             let info = launchInfo(pid: current)
-            let directory = await workingDirectory(pid: current)
+            let directory = workingDirectory(pid: current)
 
             guard directory == projectPath else { return nil }
 
@@ -150,12 +142,31 @@ enum ProcessResolver {
         return Date(timeIntervalSince1970: Double(started.tv_sec) + Double(started.tv_usec) / 1_000_000)
     }
 
-    static func workingDirectory(pid: Int) async -> String {
-        let output = await Shell.run(
-            "/usr/sbin/lsof",
-            arguments: ["-d", "cwd", "-a", "-p", "\(pid)", "-Fn"]
-        )
-        return parseCWD(output ?? "")
+    /// Empty for a process owned by another user, which the kernel will not describe.
+    static func workingDirectory(pid: Int) -> String {
+        var info = proc_vnodepathinfo()
+        let size = Int32(MemoryLayout<proc_vnodepathinfo>.size)
+        guard proc_pidinfo(Int32(pid), PROC_PIDVNODEPATHINFO, 0, &info, size) == size else { return "" }
+        return withUnsafeBytes(of: info.pvi_cdir.vip_path) { String(cString: $0.bindMemory(to: CChar.self).baseAddress!) }
+    }
+
+    /// One sysctl for the whole process table, names only. Errs towards true
+    /// so a failed read costs a scan rather than hiding something running.
+    static func isAnyProcess(named name: String) -> Bool {
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0]
+        var size = 0
+        guard sysctl(&mib, 4, nil, &size, nil, 0) == 0 else { return true }
+
+        let stride = MemoryLayout<kinfo_proc>.stride
+        var table = [kinfo_proc](repeating: kinfo_proc(), count: size / stride + 32)
+        size = table.count * stride
+        guard sysctl(&mib, 4, &table, &size, nil, 0) == 0 else { return true }
+
+        return table.prefix(size / stride).contains { process in
+            withUnsafeBytes(of: process.kp_proc.p_comm) {
+                String(cString: $0.bindMemory(to: CChar.self).baseAddress!) == name
+            }
+        }
     }
 
     // MARK: - Framework Detection
@@ -209,18 +220,5 @@ enum ProcessResolver {
         name.split(separator: "-")
             .map { $0.prefix(1).uppercased() + $0.dropFirst() }
             .joined(separator: " ")
-    }
-}
-
-// MARK: - Private Parsing
-
-extension ProcessResolver {
-    static func parseCWD(_ output: String) -> String {
-        for line in output.split(separator: "\n") {
-            if line.hasPrefix("n/") {
-                return String(line.dropFirst())
-            }
-        }
-        return ""
     }
 }

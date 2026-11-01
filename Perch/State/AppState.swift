@@ -22,7 +22,12 @@ final class AppState {
 
     var simulatorRestartStates: [String: RestartState] = [:]
 
-    private static let pollingInterval: TimeInterval = 3.0
+    /// Fast while you are looking at the panel. Closed, the only thing on
+    /// screen is the owl, and nothing it reacts to (a session gone stale over
+    /// hours, an agent that exited) needs to land within three seconds.
+    private static let openInterval: TimeInterval = 3
+    private static let closedInterval: TimeInterval = 15
+    private(set) var isPanelOpen = false
 
     private var timer: Timer?
     private var killedPIDs: Set<Int> = []
@@ -100,11 +105,27 @@ final class AppState {
 
     func startPolling() {
         Task { await refresh() }
+        schedulePolling()
+    }
 
-        timer = Timer.scheduledTimer(withTimeInterval: Self.pollingInterval, repeats: true) { [weak self] _ in
+    /// Opening the panel scans at once, so it never shows numbers up to
+    /// fifteen seconds old.
+    func setPanelOpen(_ open: Bool) {
+        guard open != isPanelOpen else { return }
+        isPanelOpen = open
+        if open { Task { await refresh() } }
+        schedulePolling()
+    }
+
+    private func schedulePolling() {
+        timer?.invalidate()
+        let interval = isPanelOpen ? Self.openInterval : Self.closedInterval
+        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { await self.refresh() }
         }
+        // Lets the system batch the closed-panel wakeups with others.
+        timer?.tolerance = interval / 5
     }
 
     /// Main-actor for the `withAnimation` below. The scanners it awaits are

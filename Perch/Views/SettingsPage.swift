@@ -4,6 +4,7 @@ struct SettingsPage: View {
     let back: () -> Void
 
     @AppStorage("showDesktopHelpers") private var showDesktopHelpers = false
+    @AppStorage(MenuBarIconAnimator.idleKey) private var owlIdles = true
     @State private var launchAtLogin = LoginItem.isEnabled
     @State private var failure: String?
     @State private var accessibilityTrusted = Accessibility.isTrusted
@@ -37,6 +38,14 @@ struct SettingsPage: View {
                         "Show Claude Desktop",
                         caption: "Adds its helper processes to the list",
                         isOn: $showDesktopHelpers
+                    )
+
+                    PanelRowDivider()
+
+                    PanelToggleRow(
+                        "Idle owl",
+                        caption: "Blinks and glances while you work",
+                        isOn: $owlIdles
                     )
                 }
 
