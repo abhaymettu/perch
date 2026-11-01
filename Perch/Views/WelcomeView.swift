@@ -67,7 +67,7 @@ struct WelcomeView: View {
         StepLayout(
             title: "Perch",
             titleSize: 28,
-            caption: "Claude sessions, dev servers, daemons\nand simulators, in one menu bar panel.",
+            caption: "Claude sessions, dev servers, launch agents,\ncron and simulators, in one menu bar panel.",
             primary: "Get Started",
             action: { withAnimation(.easeInOut(duration: 0.35)) { step = 1 } }
         ) {
