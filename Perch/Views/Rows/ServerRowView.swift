@@ -49,7 +49,7 @@ struct ServerRowView: View {
                     .foregroundStyle(Color.ink)
                     .lineLimit(1)
 
-                Text("· :\(server.port)")
+                Text(verbatim: "· :\(server.port)")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Color.inkMuted)
                     .monospacedDigit()

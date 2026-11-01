@@ -22,7 +22,7 @@ struct RowAction: View {
                 .background {
                     if isHovered {
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(.white.opacity(0.08))
+                            .fill(Color.wash(0.08))
                     }
                 }
                 .contentShape(Rectangle())
@@ -52,7 +52,7 @@ struct FooterAction: View {
                 .background {
                     if isHovered {
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(.white.opacity(0.08))
+                            .fill(Color.wash(0.08))
                     }
                 }
                 .contentShape(Rectangle())

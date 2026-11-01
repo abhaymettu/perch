@@ -61,7 +61,7 @@ struct MenuBarView: View {
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(.white.opacity(0.30), lineWidth: 1)
+                .strokeBorder(Color.wash(0.30), lineWidth: 1)
                 .allowsHitTesting(false)
         }
         .overlay(alignment: .top) {
@@ -80,7 +80,6 @@ struct MenuBarView: View {
             .padding(.horizontal, 12)
             .allowsHitTesting(false)
         }
-        .preferredColorScheme(.dark)
         .onAppear { revealProblems() }
         .onChange(of: problemSections) { _, newValue in
             expanded.formUnion(newValue)
@@ -297,7 +296,7 @@ private extension MenuBarView {
                     .transition(.opacity)
             }
         }
-        .background(isOpen ? Color.black.opacity(0.12) : Color.clear)
+        .background(isOpen ? Color.sink(0.12) : Color.clear)
     }
 
     func toggle(_ title: String) {
@@ -413,10 +412,10 @@ private extension MenuBarView {
                             .padding(.vertical, 4)
                             .background {
                                 RoundedRectangle(cornerRadius: 6)
-                                    .fill(.white.opacity(0.06))
+                                    .fill(Color.wash(0.06))
                                     .overlay {
                                         RoundedRectangle(cornerRadius: 6)
-                                            .strokeBorder(.white.opacity(0.17), lineWidth: 1)
+                                            .strokeBorder(Color.wash(0.17), lineWidth: 1)
                                     }
                             }
                     }
@@ -439,7 +438,7 @@ private extension MenuBarView {
         .padding(.horizontal, 9)
         .padding(.vertical, 6)
         .frame(minHeight: 41)
-        .background(.white.opacity(0.025))
+        .background(Color.wash(0.025))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Application actions")
     }

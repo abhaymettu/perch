@@ -227,7 +227,7 @@ enum PreviewHarness {
                         Text(scenario.name.uppercased())
                             .font(.system(size: 9, weight: .semibold, design: .monospaced))
                             .tracking(1.4)
-                            .foregroundStyle(Color.white.opacity(0.3))
+                            .foregroundStyle(Color.wash(0.3))
                     }
                     .frame(width: MenuBarView.panelWidth, alignment: .top)
                 }
@@ -235,9 +235,13 @@ enum PreviewHarness {
             .padding(gap)
         }
         .frame(width: width, height: height, alignment: .top)
-        // A flat mid-grey, not black: the panel's material is translucent and
-        // over pure black every surface token reads darker than it ships.
-        .background(Color(hex: 0x3A3A42))
+        // A flat grey, not black or white: the panel's material is translucent
+        // and over either extreme every surface token reads off from how it ships.
+        .background(Color(nsColor: NSColor(name: nil) {
+            $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+                ? NSColor(srgbRed: 0.23, green: 0.23, blue: 0.26, alpha: 1)
+                : NSColor(srgbRed: 0.86, green: 0.87, blue: 0.89, alpha: 1)
+        }))
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: width, height: height),

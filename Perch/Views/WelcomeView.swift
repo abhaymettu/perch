@@ -38,7 +38,7 @@ struct WelcomeView: View {
             HStack(spacing: 5) {
                 ForEach(0..<2, id: \.self) { index in
                     Capsule()
-                        .fill(index == step ? Color.accent : Color.white.opacity(0.16))
+                        .fill(index == step ? Color.accent : Color.wash(0.16))
                         .frame(width: index == step ? 14 : 5, height: 5)
                 }
             }

@@ -32,8 +32,8 @@ struct AboutPage: View {
                 .foregroundStyle(Color.inkFaint)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 2.5)
-                .background(Color.white.opacity(0.05), in: Capsule())
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.06)))
+                .background(Color.wash(0.05), in: Capsule())
+                .overlay(Capsule().strokeBorder(Color.wash(0.06)))
                 .padding(.top, 10)
 
             PanelGroup(label: "MADE BY", icon: "hammer") {

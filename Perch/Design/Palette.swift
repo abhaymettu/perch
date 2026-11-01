@@ -28,20 +28,40 @@ extension Color {
     static let alert = adaptive("alert", light: 0x805601, dark: 0xFFD079)
     static let xcode = adaptive("xcode", light: 0x555C66, dark: 0xD2D5DC)
 
-    static let glassRule = Color.white.opacity(0.10)
-    static let glassWarning = Color(hex: 0xFFD078)
+    /// Hover fills, rules, tracks and strokes: white over the dark material,
+    /// black over the light one. Black reads about twice as heavy as white at
+    /// the same alpha, so the light side gets a little over half of it.
+    static func wash(_ alpha: Double) -> Color {
+        dynamic(dark: NSColor(white: 1, alpha: alpha), light: NSColor(white: 0, alpha: alpha * 0.55))
+    }
+
+    /// A recessed surface (an open section, a log box). Darker in both modes.
+    static func sink(_ alpha: Double) -> Color {
+        dynamic(dark: NSColor(white: 0, alpha: alpha), light: NSColor(white: 0, alpha: alpha * 0.3))
+    }
+
+    static let cardTint = dynamic(dark: NSColor(srgbHex: 0x313741, alpha: 0.51), light: NSColor(white: 1, alpha: 0.55))
+    static let shellTint = dynamic(dark: NSColor(srgbHex: 0x161B23, alpha: 0.34), light: NSColor(white: 1, alpha: 0.32))
 
     private static func adaptive(_ name: String, light: UInt32, dark: UInt32) -> Color {
-        Color(nsColor: NSColor(name: NSColor.Name("Perch.\(name)")) { appearance in
-            let hex = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-                ? dark : light
-            return NSColor(
-                srgbRed: CGFloat((hex >> 16) & 0xFF) / 255,
-                green: CGFloat((hex >> 8) & 0xFF) / 255,
-                blue: CGFloat(hex & 0xFF) / 255,
-                alpha: 1
-            )
+        dynamic(dark: NSColor(srgbHex: dark), light: NSColor(srgbHex: light))
+    }
+
+    private static func dynamic(dark: NSColor, light: NSColor) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
         })
+    }
+}
+
+private extension NSColor {
+    convenience init(srgbHex hex: UInt32, alpha: CGFloat = 1) {
+        self.init(
+            srgbRed: CGFloat((hex >> 16) & 0xFF) / 255,
+            green: CGFloat((hex >> 8) & 0xFF) / 255,
+            blue: CGFloat(hex & 0xFF) / 255,
+            alpha: alpha
+        )
     }
 }
 
@@ -112,8 +132,8 @@ struct PerchHairline: View {
         LinearGradient(
             stops: [
                 .init(color: .clear, location: 0),
-                .init(color: .white.opacity(0.19), location: 0.28),
-                .init(color: .white.opacity(0.12), location: 0.72),
+                .init(color: .wash(0.19), location: 0.28),
+                .init(color: .wash(0.12), location: 0.72),
                 .init(color: .clear, location: 1)
             ],
             startPoint: .leading,
@@ -133,13 +153,13 @@ private struct PerchGlassCard: ViewModifier {
             .background {
                 if reduceTransparency {
                     RoundedRectangle(cornerRadius: radius, style: .continuous)
-                        .fill(Color(hex: 0x3B4049))
+                        .fill(Color.panelSurface)
                 } else {
                     RoundedRectangle(cornerRadius: radius, style: .continuous)
                         .fill(.ultraThinMaterial)
                         .overlay {
                             RoundedRectangle(cornerRadius: radius, style: .continuous)
-                                .fill(Color(hex: 0x313741).opacity(0.51))
+                                .fill(Color.cardTint)
                         }
                         .overlay {
                             RoundedRectangle(cornerRadius: radius, style: .continuous)
@@ -156,7 +176,7 @@ private struct PerchGlassCard: ViewModifier {
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .strokeBorder(.white.opacity(0.15), lineWidth: 1)
+                    .strokeBorder(Color.wash(0.15), lineWidth: 1)
                     .allowsHitTesting(false)
             }
             .overlay(alignment: .top) {
@@ -192,7 +212,7 @@ private struct PerchPlainButtonBody<Label: View>: View {
         label
             .background {
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.white.opacity(isPressed ? 0.12 : (hovered ? 0.07 : 0)))
+                    .fill(Color.wash(isPressed ? 0.12 : (hovered ? 0.07 : 0)))
             }
             .contentShape(Rectangle())
             .onHover { hovered = $0 }
@@ -204,10 +224,9 @@ private struct PerchPlainButtonBody<Label: View>: View {
 struct PerchWindowBackdrop: NSViewRepresentable {
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = PerchVisualEffectView()
-        view.material = .hudWindow
+        view.material = .popover
         view.blendingMode = .behindWindow
         view.state = .active
-        view.appearance = NSAppearance(named: .darkAqua)
         return view
     }
 
@@ -235,10 +254,10 @@ struct PerchPanelShell: View {
     var body: some View {
         ZStack {
             if reduceTransparency {
-                Color(hex: 0x30343C)
+                Color.panelGround
             } else {
                 PerchWindowBackdrop()
-                Color(hex: 0x161B23).opacity(0.34)
+                Color.shellTint
 
                 LinearGradient(
                     stops: [

@@ -33,7 +33,7 @@ struct UsageStrip: View {
             .padding(.top, 12)
             .padding(.bottom, 11)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.white.opacity(isHovered ? 0.045 : 0))
+            .background(Color.wash(isHovered ? 0.045 : 0))
             .perchGlassCard(radius: 11)
             .contentShape(RoundedRectangle(cornerRadius: 11))
         }
@@ -158,9 +158,9 @@ struct UsageStrip: View {
 
             ZStack(alignment: .leading) {
                 Capsule()
-                    .fill(.white.opacity(0.13))
+                    .fill(Color.wash(0.13))
                 Capsule()
-                    .fill(Color(hex: 0xD3D7DF))
+                    .fill(Color.ok)
                     .frame(width: proxy.size.width * CGFloat(fraction))
                     .overlay(alignment: .top) {
                         Color.white.opacity(0.4)

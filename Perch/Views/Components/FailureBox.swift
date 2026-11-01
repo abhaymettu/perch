@@ -49,10 +49,10 @@ struct FailureBox: View {
         .padding(Self.inset)
         .background {
             RoundedRectangle(cornerRadius: Self.radius)
-                .fill(Color.black.opacity(0.12))
+                .fill(Color.sink(0.12))
                 .overlay {
                     RoundedRectangle(cornerRadius: Self.radius)
-                        .strokeBorder(.white.opacity(0.10), lineWidth: 1)
+                        .strokeBorder(Color.wash(0.10), lineWidth: 1)
                 }
         }
     }
@@ -72,7 +72,7 @@ struct FailureBox: View {
                 .background {
                     if isHoveringCopy {
                         RoundedRectangle(cornerRadius: 3)
-                            .fill(.white.opacity(0.08))
+                            .fill(Color.wash(0.08))
                     }
                 }
                 .contentShape(Rectangle())

@@ -39,11 +39,14 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     @AppStorage("hasLaunchedBefore") private var hasLaunchedBefore = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // The panel floats over an uncontrolled wallpaper: a light appearance
-        // drops its labels to near-black and they vanish into the material.
-        NSApp.appearance = NSAppearance(named: .darkAqua)
-
         #if DEBUG
+        // Lets the preview harness render either appearance on demand.
+        switch ProcessInfo.processInfo.environment["PERCH_APPEARANCE"] {
+        case "light": NSApp.appearance = NSAppearance(named: .aqua)
+        case "dark": NSApp.appearance = NSAppearance(named: .darkAqua)
+        default: break
+        }
+
         ClaudeScanner.selfCheck()
         LimitsMonitor.selfCheck()
         LaunchAgent.selfCheck()
@@ -60,6 +63,9 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         // Variable length: the quota time sits beside the owl as the
         // button's title, which a square item would clip.
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        // Named so macOS remembers its position, and so `Scripts/bench.py` can
+        // hide it by default without touching the code.
+        statusItem.autosaveName = "Perch"
 
         if let button = statusItem.button {
             button.action = #selector(togglePanel)
