@@ -23,8 +23,8 @@ LaunchAgents, cron jobs, simulators, and how much of your Claude usage limit is 
 
 If you run Claude Code all day, you have probably typed `ps aux | grep claude` to work out which
 sessions are still alive, opened a usage page to see how close you are to the limit, and hunted for
-whatever is holding port 3000. Perch answers all three from the menu bar, and costs about 2% of one
-CPU core and 21 MB doing it.
+whatever is holding port 3000. Perch answers all three from the menu bar, for about 2 to 4% of one
+CPU core and 25 MB.
 
 ## Install
 
@@ -90,16 +90,16 @@ minutes each:
 
 | | CPU, Perch plus every scan it spawns | CPU, Perch alone | Memory | Wakeups |
 |---|---|---|---|---|
-| Owl idling | OWL_CPU | OWL_SELF | OWL_MEM | OWL_WAKE |
+| Owl idling | 3.7% | 2.4% | 25 MB | 30 /s |
 | Owl still | 2.3% | 0.3% | 21 MB | 2.2 /s |
-| Before this release | BEFORE_CPU | BEFORE_SELF | BEFORE_MEM | BEFORE_WAKE |
+| Before this release, owl idling | 74.5% | 17.4% | 234 MB | 52 /s |
 
 CPU is percent of one core over Perch's whole life, launch included, and counts the `ps`, `lsof`,
 `launchctl` and `crontab` children it spawns, because a scanner that hides its work in child
 processes is not cheap. Memory is the physical footprint, the figure Activity Monitor shows.
 Wakeups come from the kernel's own counters (`proc_pid_rusage`).
 
-What changed, in order of how much it saved:
+What changed:
 
 1. **The closed panel no longer renders.** Every poll used to animate counters inside a panel nobody
    could see, and SwiftUI rasterized that text on the CPU each time. The glyph cache grew by about
@@ -116,7 +116,7 @@ What changed, in order of how much it saved:
    auto-hidden menu bar, not under Reduce Motion, and never if you turn it off in Settings. An alert
    still plays.
 
-Rerun it yourself. The bench builds its own copy under a separate bundle id and hides its menu bar
+The first row is what you get by default. Rerun it yourself. The bench builds its own copy under a separate bundle id and hides its menu bar
 item, so it never touches an installed Perch:
 
 ```sh

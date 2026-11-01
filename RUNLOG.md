@@ -17,3 +17,7 @@ Working log for the 1.3 release lane. Newest entries at the bottom.
 - In-process cwd checked against lsof on 40 live claude pids: 39 equal, 1 where lsof gave nothing and kernel gave a path.
 - Alert owl is now a solid amber chip; hot usage meters amber. Staged hero pictures from `PERCH_UI_PREVIEW=hero`.
 - NEXT: fill README cost table, release.sh 1.3, gh release, homebrew-tap repo + cask, fresh-clone check, site/ files.
+- 300 s benches (scratch runbench.sh): after, owl still 2.26% / 0.3% / 21 MB / 2.17 wakeups/s; after, owl idling
+  3.66% / 2.43% / 25 MB / 29.56; before (70ef2e6), owl idling 74.52% / 17.43% / 234 MB / 52.02.
+- Release 1.3 built by Scripts/release.sh: universal, ad-hoc + hardened runtime. zip sha256 da327ef4...77a3.
+- Em dashes removed from all tracked files (54 inherited ones in comments and strings).
