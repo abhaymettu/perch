@@ -31,3 +31,8 @@ Working log for the 1.3 release lane. Newest entries at the bottom.
 - Corrected 300 s benches: owl idling 3.55% / 2.3% / 122 MB / 30.44; owl still 1.6% / 0.3% / 20 MB / 3.14;
   before (70ef2e6) owl idling 64.15% / 18.03% / 352 MB / 46.43. Footprint is a single end-of-run sample and varies
   (owl idling read 25 MB in the first run, 122 MB here); README says so.
+- SHIPPED 2026-11-01: v1.3 release https://github.com/abhaymettu/perch/releases/tag/v1.3 (zip, dmg, SHA256SUMS),
+  tap https://github.com/abhaymettu/homebrew-tap. `brew install --cask --appdir=<scratch> abhaymettu/tap/perch`
+  installed 1.3, codesign verify ok, no quarantine xattr; uninstalled after. Fresh clone of main built with
+  `xcodebuild -scheme Perch -configuration Release build`: BUILD SUCCEEDED. His live /Applications Perch (pid 77609)
+  untouched throughout.
