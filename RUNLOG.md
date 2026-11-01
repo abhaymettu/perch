@@ -21,3 +21,10 @@ Working log for the 1.3 release lane. Newest entries at the bottom.
   3.66% / 2.43% / 25 MB / 29.56; before (70ef2e6), owl idling 74.52% / 17.43% / 234 MB / 52.02.
 - Release 1.3 built by Scripts/release.sh: universal, ad-hoc + hardened runtime. zip sha256 da327ef4...77a3.
 - Em dashes removed from all tracked files (54 inherited ones in comments and strings).
+- Independent review (Opus subagent): bench counted its own xcodebuild in RUSAGE_CHILDREN (numbers above inflated,
+  baseline most); Shell.run had no timeout; reopen during close fade lost; open mid-scan skipped rescan. All fixed
+  (wait4, 10 s watchdog, isOpen flag, rescanWanted). Wakeups now interrupt_wkups only. Benches rerunning (b2-*.json
+  in scratch). check-cwd.sh: kernel and lsof never disagree; lsof blank for 1 to 15 of 40 on a busy machine.
+- HANDOFF if context runs out: fill README table + site/writeup.md + site/meta.json + launch-post from b2-*.json,
+  rebuild Scripts/release.sh 1.3, update homebrew-tap sha, push main, tag v1.3, gh release create with
+  scratch notes-1.3.md + zip + dmg, brew install --cask --appdir=<scratch> test, settle.
