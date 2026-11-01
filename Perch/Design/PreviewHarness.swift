@@ -30,10 +30,6 @@ struct PreviewScenario {
     /// otherwise renders solely when a real relaunch dies.
     var restartFailures: [Int: String] = [:]
 
-    /// Live tmux/herdr tasks, or empty for a Mac with no bridge writer
-    /// running.
-    var bridgeTasks: [BridgeTask] = []
-
     /// Which perch the roost opens. One section is open at a time, so a
     /// scenario that exists to exercise a section has to name it.
     var open: String = "CLAUDE"
@@ -101,14 +97,6 @@ extension PreviewScenario {
                        resetsAt: resets(in: 71), modelName: nil),
             UsageLimit(kind: "weekly_scoped", percent: 41, severity: "normal",
                        resetsAt: resets(in: 71), modelName: "Fable")
-        ],
-        bridgeTasks: [
-            BridgeTask(id: "w1K:t1", workspaceId: "w1K", workspaceLabel: "Kalshi",
-                       tabLabel: "reflex-worker", statusText: "✳ Reflex worker Phase A implementation",
-                       updatedAt: Date().timeIntervalSince1970 - 4),
-            BridgeTask(id: "w1M:t1", workspaceId: "w1M", workspaceLabel: "Perch",
-                       tabLabel: "owl-glass", statusText: "✳ Owl icon glass texture",
-                       updatedAt: Date().timeIntervalSince1970 - 11)
         ]
     )
 
@@ -148,11 +136,6 @@ extension PreviewScenario {
         restartFailures: [
             3000: "Error: listen EADDRINUSE: address already in use :::3000\n    at Server.setupListenHandle [as _listen2] (node:net:1817:16)"
         ],
-        bridgeTasks: [
-            BridgeTask(id: "w1J:t1", workspaceId: "w1J", workspaceLabel: "JOB 17 cms-mcp",
-                       tabLabel: "cms-mcp", statusText: nil,
-                       updatedAt: Date().timeIntervalSince1970 - 412)
-        ],
         open: "DEV SERVERS"
     )
 
@@ -174,11 +157,6 @@ extension PreviewScenario {
                        resetsAt: resets(in: 4.8), modelName: nil),
             UsageLimit(kind: "weekly_all", percent: 12, severity: "normal",
                        resetsAt: resets(in: 120), modelName: nil)
-        ],
-        bridgeTasks: [
-            BridgeTask(id: "view-scratch:1:scratch", workspaceId: "view-scratch", workspaceLabel: "Scratch",
-                       tabLabel: "scratch", statusText: "✳ Idle",
-                       updatedAt: Date().timeIntervalSince1970 - 20)
         ],
         open: "DAEMONS"
     )
