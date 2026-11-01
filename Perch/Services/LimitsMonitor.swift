@@ -13,7 +13,7 @@ struct UsageLimit: Identifiable, Equatable {
     var id: String { modelName.map { "\(kind):\($0)" } ?? kind }
 
     /// Every column names a window. Dropping to the bare model name gave the
-    /// strip "SESSION / WEEKLY / FABLE" — two windows and a model, read as
+    /// strip "SESSION / WEEKLY / FABLE", two windows and a model, read as
     /// three of the same kind of thing.
     var shortTitle: String {
         guard kind.hasPrefix("weekly") else { return kind.uppercased() }
@@ -35,7 +35,7 @@ struct UsageLimit: Identifiable, Equatable {
         severity == "normal" ? .ink : color
     }
 
-    /// Two units at most — "now", "14m", "2h 14m", "3d 5h" — for the strip
+    /// Two units at most, "now", "14m", "2h 14m", "3d 5h", for the strip
     /// column and for the menu bar. A zero small unit is dropped, so a reset
     /// exactly two hours out reads "2h", not "2h 0m".
     func countdown() -> String {
@@ -56,7 +56,7 @@ struct UsageLimit: Identifiable, Equatable {
     }
 }
 
-/// Reads Anthropic's OAuth usage endpoint — percent of limit per window, which
+/// Reads Anthropic's OAuth usage endpoint, percent of limit per window, which
 /// is the "am I about to be cut off" number. Dollars spent cannot answer that.
 ///
 /// The token is read from the Keychain on every fetch and never written to disk
@@ -129,7 +129,7 @@ final class LimitsMonitor {
         var hint: String {
             switch self {
             case .keychain:    "Keychain access denied"
-            case .expired:     "Session expired — run /login"
+            case .expired:     "Session expired, run /login"
             case .http(let c): "Usage API returned \(c)"
             }
         }
@@ -220,7 +220,7 @@ final class LimitsMonitor {
 
     /// Mirrors each successful fetch into Scriptable's iCloud folder, where the
     /// companion iOS widget (`Widget/Perch Usage.js`) reads it. Percentages and
-    /// reset times only — never the token. A no-op unless Scriptable's folder
+    /// reset times only, never the token. A no-op unless Scriptable's folder
     /// already exists.
     private static let scriptableDirectory = FileManager.default.homeDirectoryForCurrentUser
         .appending(path: "Library/Mobile Documents/iCloud~dk~simonbs~Scriptable/Documents")
@@ -279,7 +279,7 @@ final class LimitsMonitor {
     }
 
     #if DEBUG
-    /// Pins lead selection and the scoped-window filter — the two rules that
+    /// Pins lead selection and the scoped-window filter, the two rules that
     /// decide what the menu bar says.
     static func selfCheck() {
         let payload = """

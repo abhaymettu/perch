@@ -12,7 +12,7 @@ build/
 # macOS
 .DS_Store
 
-# Design sources — kept local, not shipped. Anchored: unanchored it also
+# Design sources, kept local, not shipped. Anchored: unanchored it also
 # swallowed Perch/Design/, which is source.
 /Design/
 

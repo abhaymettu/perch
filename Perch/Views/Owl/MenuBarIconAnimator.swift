@@ -101,7 +101,7 @@ final class MenuBarIconAnimator {
     }
 
     private func draw(_ pose: OwlPose) {
-        // The button's own effectiveAppearance reflects the real menu bar —
+        // The button's own effectiveAppearance reflects the real menu bar , 
         // AppKit already resolves this per-item for template-image tinting,
         // independent of whatever appearance the app's own windows are
         // forced into (Perch forces .darkAqua for its panel). NSApp's own

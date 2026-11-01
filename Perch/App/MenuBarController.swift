@@ -32,7 +32,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     private weak var panelContentView: NSView?
     private var panelTopLeft: NSPoint = .zero
     // `NSHostingController.sizingOptions = []` (below) means AppKit no longer
-    // tracks `panelContentView.fittingSize` — it reads back 0 always. SwiftUI
+    // tracks `panelContentView.fittingSize`, it reads back 0 always. SwiftUI
     // measures its own content instead and reports it here via
     // `.perchPanelLayoutChanged`'s userInfo.
     private var lastReportedHeight: CGFloat = MenuBarView.minHeight
@@ -90,7 +90,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         // NSHostingView recomputes the window's content-size extrema on every
         // constraints pass, and a state change from a plain tap (no resize
         // code involved) can trigger that recompute *during* an in-flight
-        // updateConstraints pass — AppKit throws over the reentrant
+        // updateConstraints pass, AppKit throws over the reentrant
         // setNeedsUpdateConstraints: call (verified via crash log). This
         // panel's height is fully owned by syncPanelHeight() already.
         hostingController.sizingOptions = []
@@ -250,7 +250,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
 
     /// The panel is as tall as what is running. AppKit resizes a window about
     /// its bottom-left corner and the panel hangs from the menu bar, so the top
-    /// is re-pinned after every resize. The `!=` guard makes this idempotent —
+    /// is re-pinned after every resize. The `!=` guard makes this idempotent , 
     /// that is what stops it becoming the feedback loop `.preferredContentSize`
     /// was.
     private func syncPanelHeight(animated: Bool = true) {

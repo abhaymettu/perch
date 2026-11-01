@@ -285,7 +285,7 @@ private extension MenuBarView {
             .help(
                 section.count == 0
                     ? "No \(displayName(for: section).lowercased())"
-                    : "\(displayName(for: section))\(section.isAlert ? " — needs attention" : "")"
+                    : "\(displayName(for: section))\(section.isAlert ? ", needs attention" : "")"
             )
 
             if isOpen {

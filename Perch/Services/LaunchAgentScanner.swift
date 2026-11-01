@@ -12,7 +12,7 @@ struct LaunchAgent: Identifiable, Hashable {
 
     var isRunning: Bool { pid != nil }
     /// Negative statuses are signal deaths. SIGTERM and SIGKILL mean something
-    /// stopped the agent on purpose — a logout, a `launchctl kickstart -k` —
+    /// stopped the agent on purpose, a logout, a `launchctl kickstart -k` , 
     /// not that it broke, and counting those pins the owl red forever.
     var hasFailed: Bool { lastExitStatus != 0 && lastExitStatus != -15 && lastExitStatus != -9 }
 
@@ -28,7 +28,7 @@ struct LaunchAgent: Identifiable, Hashable {
     }
 
     /// Agent labels are reverse-DNS, and the domain half is the same on every
-    /// row — it costs width and tells you nothing. Drop it and keep the rest,
+    /// row, it costs width and tells you nothing. Drop it and keep the rest,
     /// so `com.example.app.helper` still reads as "app.helper".
     var shortLabel: String {
         let parts = label.split(separator: ".")
@@ -108,7 +108,7 @@ enum LaunchAgentScanner {
     }
 
     /// The schedule is what makes this section replace the cron one in
-    /// practice — a daemon row with no cadence tells you nothing.
+    /// practice, a daemon row with no cadence tells you nothing.
     static func schedule(fromPlistAt path: String) -> String? {
         guard let data = FileManager.default.contents(atPath: path),
               let plist = try? PropertyListSerialization.propertyList(

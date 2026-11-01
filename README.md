@@ -126,8 +126,8 @@ Scripts/bench.py 300 --owl     # owl idling as if the menu bar were visible
 
 ## Privacy
 
-Everything Perch reads stays on your Mac. No telemetry, no analytics, no update check, no account,
-no elevated permissions.
+Everything Perch reads stays on your Mac, and it runs as you, without an account or admin rights.
+The table is the complete list of what it reads.
 
 | What | How | Where it goes |
 |---|---|---|

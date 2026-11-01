@@ -3,7 +3,7 @@ import SwiftUI
 
 struct ClaudeSession: Identifiable, Hashable {
     /// A lane is identified by its name so the row survives a lane restart.
-    /// Everything else is identified by PID — a terminal session has no stable name.
+    /// Everything else is identified by PID, a terminal session has no stable name.
     static func identity(kind: SessionKind, name: String, pid: Int) -> String {
         kind == .remoteControl ? "lane:\(name)" : "\(kind.rawValue):\(pid)"
     }
@@ -15,7 +15,7 @@ struct ClaudeSession: Identifiable, Hashable {
     let workingDirectory: String
     let startedAt: Date
 
-    /// Claude processes descending from this one — a lane's live session, an
+    /// Claude processes descending from this one, a lane's live session, an
     /// interactive session's tool calls.
     let childCount: Int
 
@@ -23,10 +23,10 @@ struct ClaudeSession: Identifiable, Hashable {
     let activeSince: Date?
 
     /// A lane is judged by how long its session has been open, not by the
-    /// lane's own uptime — an idle lane running for a week is fine.
+    /// lane's own uptime, an idle lane running for a week is fine.
     var displayAge: TimeInterval { Date().timeIntervalSince(activeSince ?? startedAt) }
 
-    /// A lane with no live session is idle, not stale — `displayAge` falls back
+    /// A lane with no live session is idle, not stale, `displayAge` falls back
     /// to the lane's own uptime, and lanes are up for days on purpose. Without
     /// this the panel cries wolf every morning.
     var isStale: Bool {

@@ -13,7 +13,7 @@ struct OwlHead: View {
 
     /// Same glass family as `perchGlassCard`: a translucent fill lit from the
     /// top-left, a rim brighter at the top than the bottom, and a soft cast
-    /// shadow — so the owl reads as the same material as the panel it sits in.
+    /// shadow, so the owl reads as the same material as the panel it sits in.
     /// White glass vanishes on the light material, so there the owl is smoked
     /// glass instead: the same layers, drawn in ink.
     @Environment(\.colorScheme) private var colorScheme
@@ -56,7 +56,7 @@ struct OwlHead: View {
             )
 
             // A soft specular patch near the top edge, like light catching the
-            // curved top of a glass card. Purely additive — no shape change.
+            // curved top of a glass card. Purely additive, no shape change.
             var sheen = Path()
             sheen.addRoundedRect(
                 in: CGRect(

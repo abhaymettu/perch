@@ -80,7 +80,7 @@ enum ProcessResolver {
     private static let maxAncestorHops = 4
 
     // Next.js and npm overwrite their own argv with a display title, so the
-    // process holding the port often cannot be relaunched — walk up to one that can.
+    // process holding the port often cannot be relaunched, walk up to one that can.
     static func relaunchTarget(pid: Int, projectPath: String) async -> RelaunchTarget? {
         var candidate: Int? = pid
 

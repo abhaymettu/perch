@@ -15,7 +15,7 @@ struct PreviewScenario {
     var limits: [UsageLimit] = []
 
     /// Settings and About get a column each, otherwise they are only ever seen
-    /// by clicking through the live panel — which is how they stayed on the
+    /// by clicking through the live panel, which is how they stayed on the
     /// pre-redesign look for three rounds.
     var page: MenuBarView.Page = .main
 
@@ -51,7 +51,7 @@ extension PreviewScenario {
         Date().addingTimeInterval(hours * 3600)
     }
 
-    /// A normal working afternoon — the state the panel is in 95% of the time,
+    /// A normal working afternoon, the state the panel is in 95% of the time,
     /// so it is the one that has to be beautiful rather than merely legible.
     static let busy = PreviewScenario(
         name: "busy",
@@ -169,7 +169,7 @@ extension PreviewScenario {
     static let about = PreviewScenario(name: "about", page: .about, set: "pages")
 
     /// The first-launch window. Nobody who has already run Perch will see it
-    /// again — `hasLaunchedBefore` is set — but it is a fresh install's entire
+    /// again, `hasLaunchedBefore` is set, but it is a fresh install's entire
     /// first impression, and it stayed on the stock system look for a long time.
     static let welcome = PreviewScenario(name: "welcome", set: "welcome")
     static let welcomeAccess = PreviewScenario(name: "welcome · access", set: "welcome", step: 1)
@@ -199,7 +199,7 @@ enum PreviewHarness {
         let scenarios = PreviewScenario.all.filter { $0.set == set }
         let width = (MenuBarView.panelSize.width + gap) * CGFloat(scenarios.count) + gap
         // Tall enough for the fullest panel, and no taller than that: the grey
-        // left under a short panel is the point — it is how a round shows
+        // left under a short panel is the point, it is how a round shows
         // whether the panel actually sizes to its content.
         let height = MenuBarView.maxListHeight + 260
 
@@ -220,7 +220,7 @@ enum PreviewHarness {
                                 // height (NSHostingController's
                                 // `.preferredContentSize`). An HStack instead
                                 // proposes one, which the ScrollView happily
-                                // fills — so without this the harness shows
+                                // fills, so without this the harness shows
                                 // every panel stretched and hides the thing
                                 // being judged.
                                 .fixedSize(horizontal: false, vertical: true)
@@ -251,7 +251,7 @@ enum PreviewHarness {
             backing: .buffered,
             defer: false
         )
-        window.title = "Perch — UI preview"
+        window.title = "Perch, UI preview"
         window.contentView = NSHostingView(rootView: content)
         window.center()
         window.makeKeyAndOrderFront(nil)
@@ -341,7 +341,7 @@ enum PreviewHarness {
 
     /// Renders the window's own backing store to a PNG. `screencapture` needs a
     /// Screen Recording grant, and TCC keys that grant to the binary's resolved
-    /// path — which every Claude Code update changes, so the grant is gone by
+    /// path, which every Claude Code update changes, so the grant is gone by
     /// the next design round. Drawing it ourselves needs no grant at all.
     /// Every failure here shows up as a missing file, which `shot.sh` checks.
     private static func write(_ window: NSWindow, to path: String) {

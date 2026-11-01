@@ -37,7 +37,7 @@ enum MenuBarIcon {
     static func render(pose: OwlPose, alert: Bool = false, isDarkMenuBar: Bool) -> NSImage {
         // Template mode discards RGB and re-tints every pixel to one flat
         // foreground colour, keyed off alpha alone. That collapses the
-        // specular rim — drawn as *more* alpha, on purpose — into more of
+        // specular rim, drawn as *more* alpha, on purpose, into more of
         // that flat colour: white (a highlight) on a dark bar, but black (a
         // dark cap, backwards) on a light one. Rendering in real colour and
         // picking the body tint from the actual menu bar ourselves keeps the
@@ -122,7 +122,7 @@ private struct MenuBarOwl: View {
             // Its radius is fixed by where the eyes have to land at rest: at
             // azimuth ±α they must sit at ±eyeSpacing, so R = eyeSpacing / sin α.
             // Turning the head is then one rotation of that cylinder, and each
-            // feature's x position and width fall straight out of its azimuth —
+            // feature's x position and width fall straight out of its azimuth , 
             // including the far side going behind the head and disappearing,
             // which is what a sideways slide can never do.
             let alpha = OwlGeometry.eyeAzimuth
@@ -148,7 +148,7 @@ private struct MenuBarOwl: View {
                 let facing = cos(azimuth)
                 guard facing > OwlGeometry.cullCosine else { continue }
 
-                // The cylinder is vertical, so a turn foreshortens width only —
+                // The cylinder is vertical, so a turn foreshortens width only , 
                 // the eye keeps its full height all the way round.
                 let width = eyeWidth * facing / cos(alpha)
                 let eyeRect = CGRect(
@@ -165,7 +165,7 @@ private struct MenuBarOwl: View {
 
             let head = OwlGeometry.headPath(in: faceRect)
             // The body tint has to invert with the bar: light glass reads on
-            // a dark bar, dark glass on a light one — the same reason none of
+            // a dark bar, dark glass on a light one, the same reason none of
             // the row cards in the panel use a single fixed tint either. The
             // highlight and grounding shadow don't invert with it: a
             // highlight is always lighter than the glass under it and a
@@ -176,11 +176,11 @@ private struct MenuBarOwl: View {
             let tint: Color = alert ? Color(hex: 0xF5A524) : (isDarkMenuBar ? .white : .black)
 
             // Real glass, not a flat silhouette: colour plus real alpha here
-            // is a graduated amount of the live menu bar — already blurred
-            // over the desktop by the system material — showing through the
+            // is a graduated amount of the live menu bar, already blurred
+            // over the desktop by the system material, showing through the
             // body. The bar is already doing the blur; this layer only has
             // to be thin enough to let it read. 0.62/0.42 still painted a
-            // solid disc at 22pt — real Control Center chips hold this much
+            // solid disc at 22pt, real Control Center chips hold this much
             // less colour even over busy content.
             context.fill(
                 head,
@@ -191,7 +191,7 @@ private struct MenuBarOwl: View {
                 )
             )
 
-            // Eyes and beak are no longer a cutout hole into raw background —
+            // Eyes and beak are no longer a cutout hole into raw background , 
             // at this body alpha a hole is just as invisible as the glass
             // around it. Real glyphs on real glass chips (Wi-Fi, Bluetooth)
             // stay solid while only the chip is translucent; drawn opposite
@@ -207,7 +207,7 @@ private struct MenuBarOwl: View {
                 }
             }
 
-            // Inner glow beneath the rim, fading toward mid-face — depth without
+            // Inner glow beneath the rim, fading toward mid-face, depth without
             // a second hard edge.
             context.drawLayer { layer in
                 layer.clip(to: head)
@@ -225,7 +225,7 @@ private struct MenuBarOwl: View {
             }
 
             // Grounding shadow along the bottom rim so the shape still reads as
-            // a solid body, not just a haze. Always dark — a shadow that
+            // a solid body, not just a haze. Always dark, a shadow that
             // flipped white on a dark bar would read as a second highlight.
             context.drawLayer { layer in
                 layer.clip(to: Path(CGRect(

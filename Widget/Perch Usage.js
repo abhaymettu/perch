@@ -2,7 +2,7 @@
 // These must be at the very top of the file. Do not edit.
 // icon-color: deep-brown; icon-glyph: feather-alt;
 //
-// Perch Usage — a medium widget with the three Claude limit windows, watched
+// Perch Usage, a medium widget with the three Claude limit windows, watched
 // over by the Perch owl. Data comes from perch-usage.json, which the Perch
 // menu bar app on the Mac drops into Scriptable's iCloud folder on every poll.
 

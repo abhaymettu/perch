@@ -108,7 +108,7 @@ struct WelcomeView: View {
 
 /// Both screens through one geometry. Laid out independently they landed their
 /// icon, headline and button at three different heights each, so clicking
-/// Get Started shifted the entire screen — the tell that reads as cheap without
+/// Get Started shifted the entire screen, the tell that reads as cheap without
 /// being nameable. Fixed paddings and a fixed title height pin every element.
 private struct StepLayout<Icon: View>: View {
     let title: String

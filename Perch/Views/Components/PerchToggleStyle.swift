@@ -4,7 +4,7 @@ import SwiftUI
 // panel, so the track is drawn rather than tinted.
 struct PerchToggleStyle: ToggleStyle {
     // A 50x22 switch with a fat pill knob was the loudest object on a 328pt
-    // panel — two of them read as the page's subject rather than its controls.
+    // panel, two of them read as the page's subject rather than its controls.
     private static let trackWidth: CGFloat = 34
     private static let trackHeight: CGFloat = 19
     private static let knobWidth: CGFloat = 15
