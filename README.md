@@ -94,10 +94,11 @@ minutes each:
 | Owl still | 2.3% | 0.3% | 21 MB | 2.2 /s |
 | Before this release, owl idling | 74.5% | 17.4% | 234 MB | 52 /s |
 
-CPU is percent of one core over Perch's whole life, launch included, and counts the `ps`, `lsof`,
+CPU is percent of one core averaged over Perch's whole life, launch included, and counts the `ps`, `lsof`,
 `launchctl` and `crontab` children it spawns, because a scanner that hides its work in child
 processes is not cheap. Memory is the physical footprint, the figure Activity Monitor shows.
-Wakeups come from the kernel's own counters (`proc_pid_rusage`).
+Wakeups are interrupt wakeups from the kernel's own counters (`proc_pid_rusage`). The panel is
+closed for every run; with it open Perch scans every 3 seconds, which these runs do not measure.
 
 What changed:
 
@@ -107,8 +108,8 @@ What changed:
 2. **No process spawned per session.** Each Claude session's working directory came from its own
    `lsof`, and each dev server's from a `ps` plus an `lsof`, every three seconds. With 100 sessions
    that is 100 `lsof` runs per tick. Perch now asks the kernel directly (`proc_pidinfo`, `sysctl`).
-   On 40 live sessions the answer matched `lsof` on 39; on the last, `lsof` returned nothing and
-   the kernel returned the path.
+   `Scripts/check-cwd.sh` compares the two on up to 40 live sessions: wherever both answer they
+   agree, and on a busy machine `lsof` sometimes returns nothing where the kernel has the path.
 3. **It polls slower when nobody is looking.** Every 15 seconds with the panel closed and every 3
    while it is open, with a fresh scan the moment you open it. `xcrun simctl` runs only when a
    simulator is actually booted.
@@ -116,12 +117,13 @@ What changed:
    auto-hidden menu bar, not under Reduce Motion, and never if you turn it off in Settings. An alert
    still plays.
 
-The first row is what you get by default. Rerun it yourself. The bench builds its own copy under a separate bundle id and hides its menu bar
+The first row is the default. Rerun any row yourself; the bench builds its own copy under a separate bundle id and hides its menu bar
 item, so it never touches an installed Perch:
 
 ```sh
-Scripts/bench.py 300           # owl still
-Scripts/bench.py 300 --owl     # owl idling as if the menu bar were visible
+Scripts/bench.py 300 --owl     # row 1: owl idling, as if the menu bar were visible
+Scripts/bench.py 300           # row 2: owl still
+git checkout 70ef2e6 -- Perch && Scripts/bench.py 300 --owl   # row 3, then git checkout HEAD -- Perch
 ```
 
 ## Privacy
@@ -201,8 +203,6 @@ rerunnable measurement of its own cost.
 - **The 15 second closed-panel poll** means the owl can take up to 15 seconds to notice a failure.
 - **Processes owned by other users** have no working directory Perch can read, so they show without
   a project name.
-- **The costs above are for the closed panel**, which is where Perch spends nearly all its time.
-  With the panel open it scans every 3 seconds.
 
 ## Build from source
 

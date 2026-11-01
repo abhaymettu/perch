@@ -1,8 +1,6 @@
 import SwiftUI
 
 extension Notification.Name {
-    /// Panel is being shown. The view resets to a closed, main-page state.
-    static let perchPanelWillOpen = Notification.Name("perch.panel.willOpen")
     /// The view changed height on its own (a section opened). AppKit owns the
     /// window frame, so it has to be told rather than poll for it.
     static let perchPanelLayoutChanged = Notification.Name("perch.panel.layoutChanged")
@@ -37,6 +35,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     // `.perchPanelLayoutChanged`'s userInfo.
     private var lastReportedHeight: CGFloat = MenuBarView.minHeight
     private var openedAt = Date.distantPast
+    private var isOpen = false
     @AppStorage("hasLaunchedBefore") private var hasLaunchedBefore = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -148,7 +147,9 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     }
 
     @objc private func togglePanel() {
-        if panel.isVisible {
+        // Not `panel.isVisible`: that stays true through the close fade, which
+        // turned a quick reopen click into a second close.
+        if isOpen {
             closePanel()
         } else {
             openPanel()
@@ -171,8 +172,8 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         // asynchronously through .perchPanelLayoutChanged, same as any other
         // in-panel layout change.
         openedAt = Date()
+        isOpen = true
         appState.setPanelOpen(true)
-        NotificationCenter.default.post(name: .perchPanelWillOpen, object: nil)
 
         syncPanelHeight(animated: false)
         panel.setFrameTopLeftPoint(panelTopLeft)
@@ -215,6 +216,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     }
 
     private func closePanel() {
+        isOpen = false
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.12
             panel.animator().alphaValue = 0
@@ -231,6 +233,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     /// No fade: the caller is about to steal focus by activating another
     /// app, so the panel should just be gone rather than mid-animation.
     private func hardClosePanel() {
+        isOpen = false
         removeMonitors()
         appState.setPanelOpen(false)
         panel.orderOut(nil)

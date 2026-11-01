@@ -1,6 +1,8 @@
 import Foundation
 
 enum Shell {
+    private static let timeout: TimeInterval = 10
+
     private static let environment: [String: String] = {
         var env = ProcessInfo.processInfo.environment
         if let xcodePath = [
@@ -37,10 +39,16 @@ enum Shell {
                     return
                 }
 
+                // A child that hangs (lsof on a dead network mount) would hold
+                // the drain below forever, and with it every later scan.
+                let watchdog = DispatchWorkItem { if process.isRunning { process.terminate() } }
+                DispatchQueue.global().asyncAfter(deadline: .now() + Self.timeout, execute: watchdog)
+
                 // Drain first, then reap. Waiting first deadlocks the moment output
                 // fills the 64K pipe buffer, `ps -axo args=` clears that on its own.
                 let data = pipe.fileHandleForReading.readDataToEndOfFile()
                 process.waitUntilExit()
+                watchdog.cancel()
                 continuation.resume(returning: String(data: data, encoding: .utf8))
             } }
         }

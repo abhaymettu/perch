@@ -30,13 +30,6 @@ struct EmptyStateView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 34)
         .onAppear { startDrifting() }
-        // The panel view is built once and reused, so `onAppear` fires while the
-        // window is still ordered out and the loop can come up already stopped.
-        // Every open restarts it.
-        .onReceive(NotificationCenter.default.publisher(for: .perchPanelWillOpen)) { _ in
-            drifting = false
-            DispatchQueue.main.async { startDrifting() }
-        }
     }
 
     private func startDrifting() {

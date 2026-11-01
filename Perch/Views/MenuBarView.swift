@@ -85,11 +85,6 @@ struct MenuBarView: View {
             expanded.formUnion(newValue)
             requestLayout()
         }
-        .onReceive(NotificationCenter.default.publisher(for: .perchPanelWillOpen)) { _ in
-            expanded = Set(problemSections)
-            page = .main
-            requestLayout()
-        }
         .onPreferenceChange(PerchPanelHeightKey.self) { height in
             guard height > 0 else { return }
             let rounded = height.rounded(.up)

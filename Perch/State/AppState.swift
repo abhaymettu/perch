@@ -15,6 +15,8 @@ final class AppState {
     @AppStorage("showDesktopHelpers") var showDesktopHelpers = false
 
     private var isScanning = false
+    /// A scan was asked for while one ran; it runs once that one finishes.
+    private var rescanWanted = false
     var isInitialLoad = true
     var lastEvent: PerchEvent = .idle
 
@@ -132,9 +134,15 @@ final class AppState {
     /// `nonisolated async`, so they still run off the main thread.
     @MainActor
     func refresh() async {
-        guard !isScanning else { return }
+        guard !isScanning else { rescanWanted = true; return }
         isScanning = true
-        defer { isScanning = false }
+        defer {
+            isScanning = false
+            if rescanWanted {
+                rescanWanted = false
+                Task { await refresh() }
+            }
+        }
 
         let previousCount = totalCount
 

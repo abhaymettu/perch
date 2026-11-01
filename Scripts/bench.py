@@ -21,7 +21,6 @@ import ctypes
 import json
 import os
 import re
-import resource
 import signal
 import subprocess
 import sys
@@ -72,13 +71,13 @@ class RusageInfoV2(ctypes.Structure):
 
 
 def wakeups(pid):
-    """Kernel wakeup counters for the process (timer and interrupt wakeups
-    that took a CPU out of idle, plus every other interrupt wakeup)."""
+    """Interrupt wakeups the kernel counted for the process."""
     info = RusageInfoV2()
     libproc = ctypes.CDLL("/usr/lib/libproc.dylib")
     if libproc.proc_pid_rusage(pid, 2, ctypes.byref(info)) != 0:
         return None
-    return info.pkg_idle_wkups + info.interrupt_wkups
+    # pkg_idle_wkups is a subset of these, so it is not added on top.
+    return info.interrupt_wkups
 
 
 def main():
@@ -105,12 +104,11 @@ def main():
     foot = footprint_mb(proc.pid)
 
     proc.send_signal(signal.SIGTERM)
-    proc.wait()
+    # wait4 returns Perch's own rusage, which covers its whole life (launch
+    # included) plus every scanner it spawned and reaped, and nothing this
+    # script ran itself, such as the build.
+    _, _, usage = os.wait4(proc.pid, 0)
     lifetime = time.monotonic() - launched
-    # Perch's rusage reaches us only at exit, and it covers its whole life:
-    # launch, steady state, and every scanner it spawned and reaped. So this
-    # figure is over the whole lifetime, launch included.
-    usage = resource.getrusage(resource.RUSAGE_CHILDREN)
 
     print(json.dumps({
         "seconds": round(elapsed),
