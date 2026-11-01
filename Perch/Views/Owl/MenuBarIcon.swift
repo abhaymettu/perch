@@ -170,7 +170,10 @@ private struct MenuBarOwl: View {
             // highlight and grounding shadow don't invert with it: a
             // highlight is always lighter than the glass under it and a
             // shadow always darker, so both stay fixed regardless of bar.
-            let tint: Color = alert ? .alert : (isDarkMenuBar ? .white : .black)
+            // Alert is the one state that means something, so it is not glass:
+            // a solid amber chip, fixed rather than appearance-resolved, since
+            // ImageRenderer has no menu bar appearance to resolve against.
+            let tint: Color = alert ? Color(hex: 0xF5A524) : (isDarkMenuBar ? .white : .black)
 
             // Real glass, not a flat silhouette: colour plus real alpha here
             // is a graduated amount of the live menu bar — already blurred
@@ -182,7 +185,7 @@ private struct MenuBarOwl: View {
             context.fill(
                 head,
                 with: .linearGradient(
-                    Gradient(colors: [tint.opacity(0.26), tint.opacity(0.14)]),
+                    Gradient(colors: alert ? [tint, tint.opacity(0.88)] : [tint.opacity(0.26), tint.opacity(0.14)]),
                     startPoint: CGPoint(x: faceRect.midX, y: faceRect.minY),
                     endPoint: CGPoint(x: faceRect.midX, y: faceRect.maxY)
                 )
@@ -199,7 +202,7 @@ private struct MenuBarOwl: View {
                     layer.clip(to: head)
                     // Frosted glass white: translucent so the bar bleeds
                     // through the eyes and beak like it does the body.
-                    let eyeTint: Color = .white.opacity(0.55)
+                    let eyeTint: Color = alert ? .black.opacity(0.72) : .white.opacity(0.55)
                     layer.fill(punch, with: .color(eyeTint))
                 }
             }

@@ -160,7 +160,7 @@ struct UsageStrip: View {
                 Capsule()
                     .fill(Color.wash(0.13))
                 Capsule()
-                    .fill(Color.ok)
+                    .fill(limit.severity == "normal" ? Color.ok : Color.alert)
                     .frame(width: proxy.size.width * CGFloat(fraction))
                     .overlay(alignment: .top) {
                         Color.white.opacity(0.4)

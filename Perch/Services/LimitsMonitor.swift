@@ -94,7 +94,7 @@ final class LimitsMonitor {
     #if DEBUG
     /// Seeded and inert, for the preview harness. Real data is `normal` almost
     /// all the time, so warning and critical would otherwise ship unrendered.
-    init(frozen limits: [UsageLimit], model: String? = "opus-5", error: String? = nil) {
+    init(frozen limits: [UsageLimit], model: String? = "opus-5.5", error: String? = nil) {
         self.limits = limits
         self.model = model
         self.error = error
@@ -268,7 +268,7 @@ final class LimitsMonitor {
     var menuBarTitle: String {
         guard let lead else { return "" }
 
-        var title = " \(lead.percent)%"
+        var title = " \(lead.kind == "session" ? "S" : "W") \(lead.percent)%"
         if lead.severity != "normal" {
             title += " \(lead.countdown())"
         }
@@ -300,17 +300,17 @@ final class LimitsMonitor {
 
         monitor.limits = parsed
         assert(monitor.lead?.kind == "session", "session should lead below 75%")
-        assert(monitor.menuBarTitle == " 4% · W 44%", "got '\(monitor.menuBarTitle)'")
+        assert(monitor.menuBarTitle == " S 4% · W 44%", "got '\(monitor.menuBarTitle)'")
 
         // The session keeps the lead even when another window is critical, and
         // a lead that is no longer "normal" carries its countdown.
         let inTwoHours = Date().addingTimeInterval(2 * 3600 + 60)
         monitor.limits[1] = UsageLimit(kind: "weekly_all", percent: 91, severity: "critical", resetsAt: inTwoHours, modelName: nil)
         assert(monitor.lead?.kind == "session", "session lost the lead to a hot weekly")
-        assert(monitor.menuBarTitle == " 4% · W 91%", "got '\(monitor.menuBarTitle)'")
+        assert(monitor.menuBarTitle == " S 4% · W 91%", "got '\(monitor.menuBarTitle)'")
 
         monitor.limits[0] = UsageLimit(kind: "session", percent: 96, severity: "critical", resetsAt: inTwoHours, modelName: nil)
-        assert(monitor.menuBarTitle == " 96% 2h 1m · W 91%", "got '\(monitor.menuBarTitle)'")
+        assert(monitor.menuBarTitle == " S 96% 2h 1m · W 91%", "got '\(monitor.menuBarTitle)'")
 
         // Both units, and the zero one dropped.
         let cases: [(TimeInterval, String)] = [

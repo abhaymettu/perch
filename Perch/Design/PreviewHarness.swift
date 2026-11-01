@@ -192,7 +192,9 @@ enum PreviewHarness {
 
     /// Lays every scenario out in one row, and with `PERCH_UI_SHOT` set writes
     /// that window to a PNG and quits.
-    static func present() {
+    @MainActor static func present() {
+        if set == "hero" { return presentHero() }
+
         let gap: CGFloat = 26
         let scenarios = PreviewScenario.all.filter { $0.set == set }
         let width = (MenuBarView.panelSize.width + gap) * CGFloat(scenarios.count) + gap
@@ -258,6 +260,78 @@ enum PreviewHarness {
 
         if let path = ProcessInfo.processInfo.environment["PERCH_UI_SHOT"] {
             // Let the material and the owl's first frame settle.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                write(window, to: path)
+                NSApp.terminate(nil)
+            }
+        }
+    }
+
+    /// The README's picture: the busy panel hanging from a menu bar over a
+    /// wallpaper, all staged, so no real session, path or project is in it.
+    @MainActor private static func presentHero() {
+        // `PERCH_HERO=hot` stages the needs-attention state instead. Otherwise
+        // one session fewer than `busy`, so the open list fits without scrolling.
+        let hot = ProcessInfo.processInfo.environment["PERCH_HERO"] == "hot"
+        var scenario = hot ? PreviewScenario.hot : PreviewScenario.busy
+        scenario.sessions.removeAll { $0.id == "lane:docs" }
+        let state = AppState(frozen: scenario)
+        let dark = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        let size = CGSize(width: 620, height: 784)
+        // The real panel opens at the status item's left edge.
+        let panelLeading: CGFloat = 116
+
+        let content = ZStack(alignment: .topLeading) {
+            LinearGradient(
+                colors: dark
+                    ? [Color(hex: 0x14213D), Color(hex: 0x2E1F47), Color(hex: 0x0B1220)]
+                    : [Color(hex: 0xB9D3F0), Color(hex: 0xE6D6F2), Color(hex: 0xF7E6D4)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 16) {
+                    HStack(spacing: 1) {
+                        Image(nsImage: MenuBarIcon.render(pose: .resting, alert: hot, isDarkMenuBar: dark))
+                        Text(state.usage.menuBarTitle)
+                            .font(Font(NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)))
+                    }
+                    .padding(.horizontal, 5)
+                    .frame(height: 22)
+                    .background(Color.wash(0.16), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                    Spacer()
+                    Image(systemName: "wifi")
+                    Image(systemName: "battery.75percent")
+                    Text("Sun Nov 1  9:41")
+                }
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Color.ink)
+                .padding(.leading, panelLeading)
+                .padding(.trailing, 16)
+                .frame(height: 30)
+                .background(Color.wash(0.08))
+
+                MenuBarView(open: scenario.open)
+                    .environment(state)
+                    .environment(ScrollActivity())
+                    .fixedSize(horizontal: false, vertical: true)
+                    .shadow(color: .black.opacity(dark ? 0.45 : 0.18), radius: 22, y: 12)
+                    .padding(.leading, panelLeading)
+            }
+        }
+        .frame(width: size.width, height: size.height, alignment: .topLeading)
+
+        let window = NSWindow(
+            contentRect: NSRect(origin: .zero, size: size),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = NSHostingView(rootView: content)
+        Self.window = window
+
+        if let path = ProcessInfo.processInfo.environment["PERCH_UI_SHOT"] {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
                 write(window, to: path)
                 NSApp.terminate(nil)

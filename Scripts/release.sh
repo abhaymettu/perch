@@ -1,67 +1,51 @@
 #!/bin/bash
 #
-# release.sh — Perch's ship pipeline:
-#   Release build (Developer ID, hardened runtime) -> styled DMG ->
-#   notarize + staple.
+# release.sh: build Perch for a GitHub release.
 #
-# Notary credentials are Apple-ID/team-level, not per-app, so this reuses
-# the "Era" keychain profile by default. To use a separate one:
-#   xcrun notarytool store-credentials "Perch" \
-#     --apple-id <apple-id> --team-id SARBM2PYZ7
-#   NOTARY_PROFILE=Perch ./Scripts/release.sh
+#   Release build -> ad-hoc signature -> Perch-<version>.zip and Perch-<version>.dmg
+#   in build/release, with their SHA-256 sums for the Homebrew cask.
 #
-# Usage: ./Scripts/release.sh
+# Perch has no Developer ID certificate yet, so the app is ad-hoc signed and
+# not notarized. Gatekeeper blocks it on first open until the quarantine flag
+# is cleared; the Homebrew cask does that on install.
+#
+# Usage: Scripts/release.sh 1.3
 #
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(dirname "$SCRIPT_DIR")"
-BUILD="$ROOT/build"
-ARCHIVE="$BUILD/Perch.xcarchive"
-APP="$BUILD/Perch.app"
-DMG="$BUILD/Perch.dmg"
-PROFILE="${NOTARY_PROFILE:-Era}"
+VERSION="${1:?usage: Scripts/release.sh <version>}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+OUT="$ROOT/build/release"
+ARCHIVE="$OUT/Perch.xcarchive"
+APP="$OUT/Perch.app"
 
+rm -rf "$OUT"
+mkdir -p "$OUT"
 cd "$ROOT"
-mkdir -p "$BUILD"
-rm -rf "$ARCHIVE" "$APP" "$DMG"
 
-echo "==> Archiving (Release)"
+echo "==> Archiving $VERSION"
 xcodebuild -project Perch.xcodeproj -scheme Perch -configuration Release \
-    -archivePath "$ARCHIVE" archive | grep -E "error|warning: code sign|ARCHIVE" || true
-[ -d "$ARCHIVE/Products/Applications/Perch.app" ] || { echo "archive failed"; exit 1; }
+    -archivePath "$ARCHIVE" -destination "generic/platform=macOS" \
+    MARKETING_VERSION="$VERSION" ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO \
+    archive > "$OUT/xcodebuild.log" 2>&1 || { tail -30 "$OUT/xcodebuild.log"; exit 1; }
 cp -R "$ARCHIVE/Products/Applications/Perch.app" "$APP"
 
-echo "==> Verifying signature"
-# The project signs with Developer ID and hardened runtime; Perch has no
-# nested frameworks, so there is nothing to re-sign — only to check.
+echo "==> Ad-hoc signing"
+codesign --force --deep --options runtime --sign - "$APP"
 codesign --verify --deep --strict "$APP"
-SIGINFO=$(codesign -dvv "$APP" 2>&1)
-case "$SIGINFO" in
-    *"Authority=Developer ID Application"*) ;;
-    *) echo "NOT Developer ID signed"; exit 1 ;;
-esac
-case "$SIGINFO" in
-    *"flags=0x10000(runtime)"*) ;;
-    *) echo "hardened runtime missing — notarization will fail"; exit 1 ;;
-esac
+lipo -archs "$APP/Contents/MacOS/Perch"
 
-echo "==> Building DMG"
-"$SCRIPT_DIR/build-dmg.sh" "$APP" > /dev/null
-[ -f "$DMG" ] || { echo "dmg failed"; exit 1; }
+echo "==> Zip"
+ditto -c -k --sequesterRsrc --keepParent "$APP" "$OUT/Perch-$VERSION.zip"
 
-echo "==> Notarizing (profile: $PROFILE)"
-xcrun notarytool submit "$DMG" --keychain-profile "$PROFILE" --wait
-xcrun stapler staple "$DMG"
+echo "==> DMG"
+STAGE="$OUT/dmg"
+mkdir -p "$STAGE"
+cp -R "$APP" "$STAGE/"
+ln -s /Applications "$STAGE/Applications"
+hdiutil create -quiet -volname "Perch $VERSION" -srcfolder "$STAGE" -ov -format UDZO "$OUT/Perch-$VERSION.dmg"
+rm -rf "$STAGE"
 
-echo "==> Gatekeeper check (the app inside; the DMG itself is not codesigned)"
-spctl -a -t exec -vv "$APP" || true
-
-VERSION=$(defaults read "$APP/Contents/Info" CFBundleShortVersionString)
-BUILDNUM=$(defaults read "$APP/Contents/Info" CFBundleVersion)
-
-echo ""
-echo "Shipped artifacts in build/:"
-echo "  Perch.dmg — notarized + stapled, version $VERSION ($BUILDNUM)"
-echo "  Attach it to the GitHub release for tag v$VERSION."
+cd "$OUT"
+shasum -a 256 "Perch-$VERSION.zip" "Perch-$VERSION.dmg" | tee SHA256SUMS
