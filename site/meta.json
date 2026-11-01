@@ -7,10 +7,10 @@
   "hero_image_light": ".github/hero-light.png",
   "paper_pdf": null,
   "headline_numbers": [
-    {"label": "CPU, owl idling, scanners included", "before": "64.2%", "after": "3.6%", "command": "Scripts/bench.py 300 --owl"},
-    {"label": "CPU, owl still, scanners included", "value": "1.6%", "command": "Scripts/bench.py 300"},
+    {"label": "CPU, owl idling, scanners included (under heavy load)", "before": "64.2%", "after": "3.6%", "command": "Scripts/bench.py 300 --owl"},
+    {"label": "CPU, owl still, scanners included (under heavy load)", "value": "1.6%", "command": "Scripts/bench.py 300"},
     {"label": "Memory footprint, owl still", "value": "20 MB", "command": "Scripts/bench.py 300"},
-    {"label": "Wakeups per second, owl idling", "before": "46", "after": "30", "command": "Scripts/bench.py 300 --owl"}
+    {"label": "Wakeups per second, owl idling (under heavy load)", "before": "46", "after": "30", "command": "Scripts/bench.py 300 --owl"}
   ],
-  "baseline_note": "Before numbers come from commit 70ef2e6 run with the same Scripts/bench.py; measured 2026-11-01 on an M4 Pro, macOS 26, about 1,250 processes."
+  "baseline_note": "Before numbers come from commit 70ef2e6 run with the same Scripts/bench.py; measured 2026-11-01 on an M4 Pro, macOS 26, about 1,250 processes. CPU and wakeups depend on load; a lighter-load rerun of the owl-still case measured 0.82% CPU and 1.7 wakeups/s."
 }

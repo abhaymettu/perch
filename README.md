@@ -101,6 +101,11 @@ run. It moves between runs: with the owl idling it has read anywhere from 25 to 
 Wakeups are interrupt wakeups from the kernel's own counters (`proc_pid_rusage`). The panel is
 closed for every run; with it open Perch scans every 3 seconds, which these runs do not measure.
 
+CPU and wakeups depend on load: the scans walk every process, so they cost more on a busy machine. A
+rerun of the owl-still row on the same Mac under lighter load measured 0.82% CPU, 0.14% for Perch
+alone and 1.7 wakeups a second, with memory again at 20 MB. Read the table as the cost under heavy
+load, and expect your own numbers to differ.
+
 What changed:
 
 1. **The closed panel no longer renders.** Every poll used to animate counters inside a panel nobody
@@ -119,7 +124,9 @@ What changed:
    still plays.
 
 The first row is the default. Rerun any row yourself; the bench builds its own copy under a separate bundle id and hides its menu bar
-item, so it never touches an installed Perch:
+item, so it never touches an installed Perch. That copy is a working Perch, so like the app it reads
+your Claude Code token and calls the usage endpoint (every 180 seconds, so one or two requests in a
+300-second run):
 
 ```sh
 Scripts/bench.py 300 --owl     # row 1: owl idling, as if the menu bar were visible
@@ -210,7 +217,8 @@ rerunnable measurement of its own cost.
 ```sh
 git clone https://github.com/abhaymettu/perch.git
 cd perch
-xcodebuild -scheme Perch -configuration Release build
+xcodebuild -scheme Perch -configuration Release -derivedDataPath build build
+open build/Build/Products/Release/Perch.app
 ```
 
 Or open `Perch.xcodeproj` in Xcode 16 or later and run. `Scripts/release.sh 1.3` builds the zip and

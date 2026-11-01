@@ -37,7 +37,9 @@ each found with a measurement rather than a guess:
    3 while it is open, and the owl only animates when the menu bar is actually on screen.
 
 After: **1.6% CPU and 20 MB** with the owl still, **3.6%** with it idling (memory with the owl
-idling varied between runs, 25 to 122 MB). Every number
+idling varied between runs, 25 to 122 MB). Those are heavy-load figures: CPU and wakeups rise with
+the number of processes the scans walk, and a lighter-load rerun of the owl-still case measured 0.82%
+CPU and 1.7 wakeups a second. Every number
 comes from `Scripts/bench.py`, which builds its own copy under a separate bundle id, so anyone can
 rerun it without touching an installed Perch.
 
