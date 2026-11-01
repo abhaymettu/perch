@@ -5,7 +5,7 @@
 perch: one menu bar panel for everything running on your mac. claude code sessions, dev servers,
 launch agents, cron, simulators, usage limits.
 
-the first build used 75% of a core watching my machine. now under 4%. how: github.com/abhaymettu/perch
+the first build used 64% of a core watching my machine. now under 4%. how: github.com/abhaymettu/perch
 
 ## Longer (HN or a blog)
 
@@ -14,9 +14,9 @@ which dev server held which port, and how close I was to the usage limit. Perch 
 one menu bar panel, with an owl that turns amber when a session goes stale or a server fails to
 restart.
 
-The interesting part was the cost. The first full build, measured on a busy machine, used 75% of a
-core and held 234 MB, because it spawned an `lsof` per session every three seconds and kept
-re-rendering a closed panel. It now uses under 4% and 25 MB, and `Scripts/bench.py` reproduces the
+The interesting part was the cost. The first full build, measured on a busy machine, used 64% of a
+core and held 352 MB, because it spawned an `lsof` per session every three seconds and kept
+re-rendering a closed panel. It now uses under 4%, and `Scripts/bench.py` reproduces the
 numbers.
 
 `brew install --cask abhaymettu/tap/perch`

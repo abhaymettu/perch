@@ -24,7 +24,7 @@ LaunchAgents, cron jobs, simulators, and how much of your Claude usage limit is 
 If you run Claude Code all day, you have probably typed `ps aux | grep claude` to work out which
 sessions are still alive, opened a usage page to see how close you are to the limit, and hunted for
 whatever is holding port 3000. Perch answers all three from the menu bar, for about 2 to 4% of one
-CPU core and 25 MB.
+CPU core.
 
 ## Install
 
@@ -90,13 +90,14 @@ minutes each:
 
 | | CPU, Perch plus every scan it spawns | CPU, Perch alone | Memory | Wakeups |
 |---|---|---|---|---|
-| Owl idling | 3.7% | 2.4% | 25 MB | 30 /s |
-| Owl still | 2.3% | 0.3% | 21 MB | 2.2 /s |
-| Before this release, owl idling | 74.5% | 17.4% | 234 MB | 52 /s |
+| Owl idling | 3.6% | 2.3% | 122 MB | 30 /s |
+| Owl still | 1.6% | 0.3% | 20 MB | 3.1 /s |
+| Before this release, owl idling | 64.2% | 18.0% | 352 MB | 46 /s |
 
 CPU is percent of one core averaged over Perch's whole life, launch included, and counts the `ps`, `lsof`,
 `launchctl` and `crontab` children it spawns, because a scanner that hides its work in child
-processes is not cheap. Memory is the physical footprint, the figure Activity Monitor shows.
+processes is not cheap. Memory is the physical footprint (the figure Activity Monitor shows) read once at the end of the
+run. It moves between runs: with the owl idling it has read anywhere from 25 to 122 MB.
 Wakeups are interrupt wakeups from the kernel's own counters (`proc_pid_rusage`). The panel is
 closed for every run; with it open Perch scans every 3 seconds, which these runs do not measure.
 

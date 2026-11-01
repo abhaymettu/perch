@@ -22,8 +22,8 @@ bar turns amber.
 ## The part worth reading: a monitor that was heavier than what it watched
 
 A menu bar app runs every minute of the day, so its own cost matters more than any feature. The
-first full build of Perch, measured on a busy machine, used **74.5% of a CPU core** (counting
-the `ps` and `lsof` processes it spawned) and held **234 MB** of memory after five minutes. Three causes,
+first full build of Perch, measured on a busy machine, used **64% of a CPU core** (counting
+the `ps` and `lsof` processes it spawned) and held **352 MB** of memory after five minutes. Three causes,
 each found with a measurement rather than a guess:
 
 1. **Rendering nobody could see.** `heap` showed 17,000 CoreGraphics glyph bitmaps. The panel was
@@ -36,7 +36,8 @@ each found with a measurement rather than a guess:
 3. **Polling for an audience of none.** Scans run every 15 seconds while the panel is closed and every
    3 while it is open, and the owl only animates when the menu bar is actually on screen.
 
-After: **2.3% CPU and 21 MB** with the owl still, **3.7% and 25 MB** with it idling. Every number
+After: **1.6% CPU and 20 MB** with the owl still, **3.6%** with it idling (memory with the owl
+idling varied between runs, 25 to 122 MB). Every number
 comes from `Scripts/bench.py`, which builds its own copy under a separate bundle id, so anyone can
 rerun it without touching an installed Perch.
 

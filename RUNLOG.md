@@ -28,3 +28,6 @@ Working log for the 1.3 release lane. Newest entries at the bottom.
 - HANDOFF if context runs out: fill README table + site/writeup.md + site/meta.json + launch-post from b2-*.json,
   rebuild Scripts/release.sh 1.3, update homebrew-tap sha, push main, tag v1.3, gh release create with
   scratch notes-1.3.md + zip + dmg, brew install --cask --appdir=<scratch> test, settle.
+- Corrected 300 s benches: owl idling 3.55% / 2.3% / 122 MB / 30.44; owl still 1.6% / 0.3% / 20 MB / 3.14;
+  before (70ef2e6) owl idling 64.15% / 18.03% / 352 MB / 46.43. Footprint is a single end-of-run sample and varies
+  (owl idling read 25 MB in the first run, 122 MB here); README says so.

@@ -1,16 +1,16 @@
 {
   "title": "Perch",
-  "summary": "Everything running on your Mac in one menu bar panel: Claude Code sessions, dev servers, LaunchAgents, cron, simulators and Claude usage limits, at about 3% of one core.",
+  "summary": "Everything running on your Mac in one menu bar panel: Claude Code sessions, dev servers, LaunchAgents, cron, simulators and Claude usage limits, at 2 to 4% of one core.",
   "repo": "https://github.com/abhaymettu/perch",
   "install": "brew install --cask abhaymettu/tap/perch",
   "hero_image": ".github/hero-dark.png",
   "hero_image_light": ".github/hero-light.png",
   "paper_pdf": null,
   "headline_numbers": [
-    {"label": "CPU, owl idling, scanners included", "before": "74.5%", "after": "3.7%", "command": "Scripts/bench.py 300 --owl"},
-    {"label": "CPU, owl still, scanners included", "value": "2.3%", "command": "Scripts/bench.py 300"},
-    {"label": "Memory footprint, owl idling", "before": "234 MB", "after": "25 MB", "command": "Scripts/bench.py 300 --owl"},
-    {"label": "Wakeups per second, owl idling", "before": "52", "after": "30", "command": "Scripts/bench.py 300 --owl"}
+    {"label": "CPU, owl idling, scanners included", "before": "64.2%", "after": "3.6%", "command": "Scripts/bench.py 300 --owl"},
+    {"label": "CPU, owl still, scanners included", "value": "1.6%", "command": "Scripts/bench.py 300"},
+    {"label": "Memory footprint, owl still", "value": "20 MB", "command": "Scripts/bench.py 300"},
+    {"label": "Wakeups per second, owl idling", "before": "46", "after": "30", "command": "Scripts/bench.py 300 --owl"}
   ],
   "baseline_note": "Before numbers come from commit 70ef2e6 run with the same Scripts/bench.py; measured 2026-11-01 on an M4 Pro, macOS 26, about 1,250 processes."
 }
