@@ -1,8 +1,7 @@
 # Perch: how much of my Claude week is left, on every account
 
-Perch is an owl in the Mac menu bar that shows how much of your Claude week is gone, for every
-account you use, and when each one resets. It is free and MIT licensed, and it installs from a DMG
-or with `brew install --cask abhaymettu/tap/perch`.
+Perch is free and MIT licensed, and it installs from a DMG or with
+`brew install --cask abhaymettu/tap/perch`.
 
 ## Why it exists
 
