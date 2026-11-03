@@ -1,8 +1,9 @@
 import Foundation
 import SwiftUI
 
-/// One rate-limit window: the session block, the weekly account total, or a
-/// weekly window scoped to a single model.
+/// One rate-limit window: the weekly account total, or a weekly window scoped
+/// to a single model. The 5-hour session block is gone from both accounts
+/// (since 2026-10-31), so it is neither parsed nor drawn.
 struct UsageLimit: Identifiable, Equatable {
     let kind: String
     let percent: Int
@@ -12,12 +13,9 @@ struct UsageLimit: Identifiable, Equatable {
 
     var id: String { modelName.map { "\(kind):\($0)" } ?? kind }
 
-    /// Every column names a window. Dropping to the bare model name gave the
-    /// strip "SESSION / WEEKLY / FABLE" — two windows and a model, read as
-    /// three of the same kind of thing.
-    var shortTitle: String {
-        guard kind.hasPrefix("weekly") else { return kind.uppercased() }
-        return modelName.map { "WEEK · \($0.uppercased())" } ?? "WEEK · ALL"
+    /// "Week" for the account total, "Fable week" for a model's own window.
+    var title: String {
+        modelName.map { "\($0) week" } ?? "Week"
     }
 
     /// The meter fill. Brand colour while there is nothing to worry about.
@@ -35,7 +33,7 @@ struct UsageLimit: Identifiable, Equatable {
         severity == "normal" ? .ink : color
     }
 
-    /// Two units at most — "now", "14m", "2h 14m", "3d 5h" — for the strip
+    /// Two units at most, "now", "14m", "2h 14m", "3d 5h", for the strip
     /// column and for the menu bar. A zero small unit is dropped, so a reset
     /// exactly two hours out reads "2h", not "2h 0m".
     func countdown(from now: Date = Date()) -> String {
@@ -72,6 +70,8 @@ struct AccountUsage: Identifiable, Equatable {
     /// His own name for the account, from accounts.json ("Main account").
     let label: String?
     let email: String?
+    /// The plan as perch-usage reports it ("Ultra"), shown as given.
+    let plan: String?
     /// live | cached | unavailable | removed-needs-reauth
     let status: String
     let reason: String?
@@ -97,7 +97,7 @@ struct AccountUsage: Identifiable, Equatable {
     }
 }
 
-/// Reads Anthropic's OAuth usage endpoint — percent of limit per window, which
+/// Reads Anthropic's OAuth usage endpoint, percent of limit per window, which
 /// is the "am I about to be cut off" number. Dollars spent cannot answer that.
 ///
 /// The token is read from the Keychain on every fetch and never written to disk
@@ -187,7 +187,7 @@ final class LimitsMonitor {
         var hint: String {
             switch self {
             case .keychain:    "Keychain access denied"
-            case .expired:     "Session expired — run /login"
+            case .expired:     "Session expired, run /login"
             case .http(let c): "Usage API returned \(c)"
             }
         }
@@ -259,8 +259,9 @@ final class LimitsMonitor {
             guard let kind = entry["kind"] as? String,
                   let percent = entry["percent"] as? Int else { return nil }
 
+            // Weekly windows only: the 5-hour session block no longer applies.
             // A scoped weekly window at 0% is a model he is not using.
-            guard kind != "weekly_scoped" || percent > 0 else { return nil }
+            guard kind.hasPrefix("weekly"), kind != "weekly_scoped" || percent > 0 else { return nil }
 
             let model = (entry["scope"] as? [String: Any])?["model"] as? [String: Any]
 
@@ -278,7 +279,7 @@ final class LimitsMonitor {
 
     /// Mirrors each successful fetch into Scriptable's iCloud folder, where the
     /// companion iOS widget (`Widget/Perch Usage.js`) reads it. Percentages and
-    /// reset times only — never the token. A no-op unless Scriptable's folder
+    /// reset times only, never the token. A no-op unless Scriptable's folder
     /// already exists.
     private static let scriptableDirectory = FileManager.default.homeDirectoryForCurrentUser
         .appending(path: "Library/Mobile Documents/iCloud~dk~simonbs~Scriptable/Documents")
@@ -314,10 +315,9 @@ final class LimitsMonitor {
 
     // MARK: - Menu bar
 
-    /// The two windows this build shows: the session block and the weekly
-    /// account total. Model-scoped weekly windows are left out.
-    var headline: [UsageLimit] {
-        limits.filter { $0.kind == "session" || $0.kind == "weekly_all" }
+    /// The window the menu bar carries: the weekly account total.
+    var headline: UsageLimit? {
+        limits.first { $0.kind == "weekly_all" }
     }
 
     /// Awake while there is a live reading to watch; dozing before the first
@@ -338,33 +338,26 @@ final class LimitsMonitor {
 
     /// With several accounts the title and that account's card read the same
     /// state.json row, so they can never disagree. The title is numbers only,
-    /// whichever account is picked: which one it is lives in the panel's picker
-    /// (his call, 2026-10-09 11:40). A chosen account that is missing, signed
+    /// whichever account is picked: which one it is shows in the panel, as the
+    /// filled ring (his call, 2026-10-09 11:40). A chosen account that is missing, signed
     /// out or stale says so: never another account's numbers in its place.
     func menuBarTitle(at now: Date) -> String {
         guard isMultiAccount else { return fetchedTitle }
         guard let picked = selectedAccount else { return "Account not found" }
         if picked.isSignedOut { return "Signed out" }
-        guard !picked.windows.isEmpty else { return "Usage unavailable" }
+        guard let week = picked.window("weekly_all") else { return "Usage unavailable" }
 
-        func part(_ label: String, _ kind: String) -> String {
-            guard let window = picked.window(kind) else { return "\(label) n/a" }
-            return window.hasReset(at: now) ? "\(label) reset" : "\(label) \(window.percent)%"
-        }
-        return "\(part("S", "session")) · \(part("W", "weekly_all")) used"
-            + (picked.isStale(at: now) ? " · stale" : "")
+        let part = week.hasReset(at: now) ? "Reset" : "\(week.percent)%"
+        return part + (picked.isStale(at: now) ? " · stale" : "")
     }
 
-    /// "S 4% · W 44% used". Percent used, never remaining. A window the payload
-    /// lacks reads "n/a", and with no successful fetch yet it says so rather
-    /// than guessing 0. "stale" is appended when the last fetch failed.
+    /// "44%": the week's percent used, never remaining, beside the owl the way
+    /// the battery item shows its charge. With no successful fetch
+    /// yet it says so rather than guessing 0. "stale" is appended when the
+    /// last fetch failed.
     private var fetchedTitle: String {
-        guard !headline.isEmpty else { return error == nil ? "Usage …" : "Usage unavailable" }
-
-        func part(_ label: String, _ kind: String) -> String {
-            headline.first { $0.kind == kind }.map { "\(label) \($0.percent)%" } ?? "\(label) n/a"
-        }
-        return "\(part("S", "session")) · \(part("W", "weekly_all")) used" + (isStale ? " · stale" : "")
+        guard let headline else { return error == nil ? "Usage …" : "Usage unavailable" }
+        return "\(headline.percent)%" + (isStale ? " · stale" : "")
     }
 
     // MARK: - Accounts
@@ -422,9 +415,10 @@ final class LimitsMonitor {
                 id: id,
                 label: entry["label"] as? String,
                 email: entry["email"] as? String,
+                plan: (entry["plan"] as? String).flatMap { $0.isEmpty ? nil : $0 },
                 status: entry["status"] as? String ?? "unavailable",
                 reason: entry["reason"] as? String,
-                windows: [window("session", entry["session"]), window("weekly_all", entry["weekly"]), fable]
+                windows: [window("weekly_all", entry["weekly"]), fable]
                     .compactMap { $0 },
                 observedAt: date(entry["observed_at"])
             )
@@ -441,43 +435,36 @@ final class LimitsMonitor {
     }
 
     #if DEBUG
-    /// Pins lead selection and the scoped-window filter — the two rules that
+    /// Pins the headline window and the scoped-window filter, the two rules that
     /// decide what the menu bar says.
     static func selfCheck() {
         let payload = """
         {"limits":[
           {"kind":"session","percent":4,"severity":"normal","resets_at":"2026-08-31T09:00:00.000000+00:00","scope":null},
-          {"kind":"weekly_all","percent":44,"severity":"normal","resets_at":null,"scope":null},
+          {"kind":"weekly_all","percent":44,"severity":"normal","resets_at":"2026-08-31T09:00:00.000000+00:00","scope":null},
           {"kind":"weekly_scoped","percent":41,"severity":"normal","resets_at":null,"scope":{"model":{"display_name":"Fable"}}},
           {"kind":"weekly_scoped","percent":0,"severity":"normal","resets_at":null,"scope":{"model":{"display_name":"Opus"}}}
         ]}
         """
         let parsed = try! parse(Data(payload.utf8))
-        assert(parsed.count == 3, "0% scoped window was not dropped: \(parsed.count)")
+        assert(parsed.map(\.kind) == ["weekly_all", "weekly_scoped"], "session or 0% scoped window kept: \(parsed.map(\.kind))")
         assert(parsed[0].resetsAt != nil, "fractional-second resets_at failed to decode")
-        assert(parsed[2].shortTitle == "WEEK · FABLE", "got \(parsed[2].shortTitle)")
+        assert(parsed[1].title == "Fable week", "got \(parsed[1].title)")
 
         // Frozen, not live: a live monitor's init reads the Keychain and calls
         // the endpoint before the timer can be stopped.
         let monitor = LimitsMonitor(frozen: [])
 
         monitor.limits = parsed
-        assert(monitor.headline.count == 2, "scoped window leaked into headline")
-        assert(monitor.menuBarTitle == "S 4% · W 44% used", "got '\(monitor.menuBarTitle)'")
+        assert(monitor.menuBarTitle == "44%", "got '\(monitor.menuBarTitle)'")
 
         monitor.limits = [parsed[1]]
-        assert(monitor.menuBarTitle == "S n/a · W 44% used", "got '\(monitor.menuBarTitle)'")
+        assert(monitor.menuBarTitle == "Usage …" || monitor.menuBarTitle == "Usage unavailable",
+               "no week window must not read as 0%: '\(monitor.menuBarTitle)'")
 
         monitor.limits = []
         assert(monitor.menuBarTitle == "Usage …" || monitor.menuBarTitle == "Usage unavailable",
                "empty limits must not read as 0%: '\(monitor.menuBarTitle)'")
-
-        let inTwoHours = Date().addingTimeInterval(2 * 3600 + 60)
-        monitor.limits = [
-            UsageLimit(kind: "session", percent: 96, severity: "critical", resetsAt: inTwoHours, modelName: nil),
-            parsed[1],
-        ]
-        assert(monitor.menuBarTitle == "S 96% · W 44% used", "got '\(monitor.menuBarTitle)'")
 
         // Both units, and the zero one dropped.
         let cases: [(TimeInterval, String)] = [
@@ -485,33 +472,34 @@ final class LimitsMonitor {
             (277_200, "3d 5h"), (259_200, "3d"),
         ]
         for (seconds, expected) in cases {
-            let limit = UsageLimit(kind: "session", percent: 1, severity: "normal",
+            let limit = UsageLimit(kind: "weekly_all", percent: 1, severity: "normal",
                                    resetsAt: Date().addingTimeInterval(seconds), modelName: nil)
             assert(limit.countdown() == expected, "\(seconds)s gave '\(limit.countdown())', want '\(expected)'")
         }
 
-        // Injected clock, the 2026-10-09 case: acct1's 5h window reset at 15:39Z
-        // and a panel opened at 15:40Z still said "4% in 1m".
+        // Injected clock: a window that reset a minute ago is passed, not "1m".
         let reset = ISO8601DateFormatter().date(from: "2026-10-09T15:39:00Z")!
-        let expiring = UsageLimit(kind: "session", percent: 4, severity: "normal", resetsAt: reset, modelName: nil)
+        let expiring = UsageLimit(kind: "weekly_all", percent: 4, severity: "normal", resetsAt: reset, modelName: nil)
         assert(!expiring.hasReset(at: reset.addingTimeInterval(-60)) && expiring.countdown(from: reset.addingTimeInterval(-60)) == "1m")
         assert(expiring.hasReset(at: reset), "a reset at exactly now is passed")
-        assert(expiring.hasReset(at: reset.addingTimeInterval(60)), "15:40Z still read as the 15:39Z window")
+        assert(expiring.hasReset(at: reset.addingTimeInterval(60)))
 
-        // Accounts: signed-in first, both timestamp shapes, Fable kept, garbage empty.
+        // Accounts: signed-in first, both timestamp shapes, Fable kept, the
+        // feed's null session dropped, plan as given, garbage empty.
         let state = """
         {"account":"acct2","accounts":{
-          "acct1":{"status":"removed-needs-reauth","session":{"usage_percent":4,"resets_at":"2026-10-09T15:39:00+00:00"},
-                   "weekly":{"usage_percent":99,"resets_at":"2026-10-09T23:00:00+00:00"},"observed_at":"2026-10-09T15:05:48+00:00"},
-          "acct2":{"status":"live","session":{"usage_percent":8,"resets_at":"2026-10-09T19:59:00+00:00"},
-                   "weekly":{"usage_percent":2,"resets_at":null},"models":{"fable":{"usage_percent":1,"resets_at":null}},
+          "acct1":{"status":"removed-needs-reauth","plan":"Ultra","session":null,
+                   "weekly":{"usage_percent":99,"resets_at":"2026-10-09T15:39:00+00:00"},"observed_at":"2026-10-09T15:05:48+00:00"},
+          "acct2":{"status":"live","plan":"Ultra","session":{"usage_percent":8,"resets_at":"2026-10-09T19:59:00+00:00"},
+                   "weekly":{"usage_percent":2,"resets_at":"2026-10-12T02:00:00+00:00"},"models":{"fable":{"usage_percent":1,"resets_at":null}},
                    "observed_at":"2026-10-09T15:40:51.3+00:00"}}}
         """
         let (owner, accounts) = parseAccounts(Data(state.utf8))
         assert(owner == "acct2" && accounts.map(\.id) == ["acct2", "acct1"], "got \(accounts.map(\.id))")
         assert(accounts.allSatisfy { $0.observedAt != nil }, "observed_at failed to decode")
-        assert(accounts[0].windows.map(\.shortTitle) == ["SESSION", "WEEK · ALL", "WEEK · FABLE"])
-        assert(accounts[1].isSignedOut && accounts[1].windows.count == 2)
+        assert(accounts[0].windows.map(\.title) == ["Week", "Fable week"], "got \(accounts[0].windows.map(\.title))")
+        assert(accounts.allSatisfy { $0.plan == "Ultra" })
+        assert(accounts[1].isSignedOut && accounts[1].windows.count == 1)
         assert(accounts[1].windows[0].hasReset(at: reset.addingTimeInterval(60)))
         assert(parseAccounts(Data("garbage".utf8)).accounts.isEmpty)
 
@@ -520,33 +508,33 @@ final class LimitsMonitor {
         let labelled = parseAccounts(Data(state.replacingOccurrences(of: "\"acct1\":{", with: "\"acct1\":{\"label\":\"Main account\",")
             .replacingOccurrences(of: "\"acct2\":{", with: "\"acct2\":{\"label\":\"Second account\",").utf8))
         let rows = LimitsMonitor(frozen: parsed, accounts: labelled.accounts, account: "acct2")
-        assert(rows.menuBarTitle(at: at) == "S 8% · W 2% used", "got '\(rows.menuBarTitle(at: at))'")
+        assert(rows.menuBarTitle(at: at) == "2%", "got '\(rows.menuBarTitle(at: at))'")
         // The fixture's 15:40Z reading is long past 15 minutes on the real clock.
         assert(rows.selectedAccount?.name == "Second account" && rows.owlAlert, "a stale live row alarms")
-        assert(rows.menuBarTitle(at: at.addingTimeInterval(16 * 60)) == "S 8% · W 2% used · stale")
+        assert(rows.menuBarTitle(at: at.addingTimeInterval(16 * 60)) == "2% · stale")
         let main = LimitsMonitor(frozen: [], accounts: labelled.accounts, account: "acct2", menuBarAccount: "acct1")
         assert(main.menuBarTitle(at: at) == "Signed out", "got '\(main.menuBarTitle(at: at))'")
         assert(!main.owlAwake && !main.owlAlert, "a signed-out choice dozes, it does not alarm")
         let gone = LimitsMonitor(frozen: parsed, accounts: labelled.accounts, account: "acct2", menuBarAccount: "acct9")
         assert(gone.menuBarTitle(at: at) == "Account not found" && gone.owlAlert)
 
-        // Binding: a picked live account shows its own numbers, unnamed, never the default's.
+        // Binding: a picked live account shows its own numbers, never the default's.
         let both = parseAccounts(Data(state.replacingOccurrences(of: "\"removed-needs-reauth\"", with: "\"live\"")
             .replacingOccurrences(of: "\"observed_at\":\"2026-10-09T15:05:48+00:00\"", with: "\"observed_at\":\"2026-10-09T15:40:51+00:00\"").utf8))
         let early = reset.addingTimeInterval(-120)
         let picked1 = LimitsMonitor(frozen: parsed, accounts: both.accounts, account: "acct2", menuBarAccount: "acct1")
         let picked2 = LimitsMonitor(frozen: parsed, accounts: both.accounts, account: "acct2", menuBarAccount: "acct2")
-        assert(picked1.menuBarTitle(at: early) == "S 4% · W 99% used", "got '\(picked1.menuBarTitle(at: early))'")
-        assert(picked2.menuBarTitle(at: early) == "S 8% · W 2% used", "got '\(picked2.menuBarTitle(at: early))'")
+        assert(picked1.menuBarTitle(at: early) == "99%", "got '\(picked1.menuBarTitle(at: early))'")
+        assert(picked1.menuBarTitle(at: reset.addingTimeInterval(60)) == "Reset")
+        assert(picked2.menuBarTitle(at: early) == "2%", "got '\(picked2.menuBarTitle(at: early))'")
 
         // One missed poll is not stale: a cached row 5 minutes old reads fresh, 16 minutes old does not.
         let cached = parseAccounts(Data(state.replacingOccurrences(of: "\"status\":\"live\"", with: "\"status\":\"cached\"").utf8))
         let missed = LimitsMonitor(frozen: parsed, accounts: cached.accounts, account: "acct2", menuBarAccount: "acct2")
         let observed = ISO8601DateFormatter.usage.date(from: "2026-10-09T15:40:51.3+00:00")!
         assert(missed.selectedAccount?.status == "cached")
-        assert(missed.menuBarTitle(at: observed.addingTimeInterval(5 * 60)) == "S 8% · W 2% used",
-               "got '\(missed.menuBarTitle(at: observed.addingTimeInterval(5 * 60)))'")
-        assert(missed.menuBarTitle(at: observed.addingTimeInterval(16 * 60)) == "S 8% · W 2% used · stale")
+        assert(missed.menuBarTitle(at: observed.addingTimeInterval(5 * 60)) == "2%")
+        assert(missed.menuBarTitle(at: observed.addingTimeInterval(16 * 60)) == "2% · stale")
     }
     #endif
 }

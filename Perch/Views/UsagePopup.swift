@@ -1,10 +1,11 @@
 import SwiftUI
 
-/// The whole panel in the usage-only build: the session and weekly meters, a
-/// start-at-login toggle and Quit. Nothing else is scanned or shown.
+/// The whole panel: one section per account (or the single signed-in
+/// account's windows), then a footer with freshness and the app's few
+/// settings. Nothing else is scanned or shown.
 struct UsagePopup: View {
-    static let panelWidth: CGFloat = 328
-    static let minHeight: CGFloat = 120
+    static let panelWidth: CGFloat = 316
+    static let minHeight: CGFloat = 96
 
     let monitor: LimitsMonitor
 
@@ -12,26 +13,24 @@ struct UsagePopup: View {
     @State private var height: CGFloat = minHeight
 
     var body: some View {
-        VStack(spacing: 0) {
-            if monitor.isMultiAccount {
-                // Several accounts: one card each, replacing the single strip
-                // that would only repeat the menu bar account.
-                AccountCards(monitor: monitor)
-                    .padding(.horizontal, 9)
-                    .padding(.top, 9)
-                    .padding(.bottom, 4)
-                menuBarPicker
-            } else if monitor.limits.isEmpty {
-                placeholder
-            } else {
-                UsageStrip(monitor: monitor)
-                    .padding(.horizontal, 9)
-                    .padding(.top, 9)
-                    .padding(.bottom, 10)
-            }
+        // The file changes every 300 s, but a window can roll over between
+        // polls, and ages have to keep counting.
+        TimelineView(.periodic(from: .now, by: 15)) { context in
+            VStack(spacing: 0) {
+                Group {
+                    if monitor.isMultiAccount {
+                        AccountCards(monitor: monitor, now: context.date)
+                    } else if monitor.headline == nil {
+                        placeholder
+                    } else {
+                        UsageStrip(monitor: monitor, now: context.date)
+                    }
+                }
+                .padding(6)
 
-            PerchHairline()
-            footer
+                PerchHairline()
+                footer(now: context.date)
+            }
         }
         .frame(width: Self.panelWidth)
         .background {
@@ -42,13 +41,12 @@ struct UsagePopup: View {
         .foregroundStyle(Color.ink)
         .tint(Color.ink)
         .background { PerchPanelShell() }
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Self.radius, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(.white.opacity(0.30), lineWidth: 1)
+            RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
+                .strokeBorder(Color.panelStroke, lineWidth: 1)
                 .allowsHitTesting(false)
         }
-        .preferredColorScheme(.dark)
         .onPreferenceChange(UsagePopupHeightKey.self) { value in
             guard value > 0 else { return }
             let rounded = value.rounded(.up)
@@ -66,79 +64,75 @@ struct UsagePopup: View {
         }
     }
 
+    static let radius: CGFloat = 12
+
     /// Never a 0%: until a fetch succeeds there is no number to show.
     private var placeholder: some View {
-        Text(monitor.error.map { "Usage unavailable · \($0)" } ?? "Reading usage…")
-            .font(.system(size: 12))
-            .foregroundStyle(monitor.error == nil ? Color.inkMuted : Color.alert)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 17)
-            .padding(.vertical, 22)
-    }
-
-    /// Which account's numbers the menu bar title carries. The only setting
-    /// in the panel; the choice persists across launches.
-    private var menuBarPicker: some View {
-        HStack(spacing: 6) {
-            Text("Menu bar shows")
-                .font(.system(size: 12))
-                .foregroundStyle(Color.inkMuted)
-
-            Spacer(minLength: 6)
-
-            Menu {
-                Picker("Menu bar shows", selection: Binding(
-                    get: { monitor.menuBarAccountID ?? "" },
-                    set: { monitor.chooseMenuBarAccount($0) }
-                )) {
-                    ForEach(monitor.accounts) { account in
-                        Text(account.isSignedOut ? "\(account.name) · signed out" : account.name)
-                            .tag(account.id)
-                    }
-                }
-                .pickerStyle(.inline)
-                .labelsHidden()
-            } label: {
-                Text(monitor.selectedAccount?.name ?? "Account not found")
-                    .font(.system(size: 12, weight: .medium))
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            if monitor.error != nil {
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.system(size: 11, weight: .medium))
+                    .accessibilityHidden(true)
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.visible)
-            .fixedSize()
-            .accessibilityLabel("Menu bar shows")
-            .accessibilityValue(monitor.selectedAccount?.name ?? "Account not found")
+            Text(monitor.error.map { "Usage unavailable. \($0)" } ?? "Reading usage…")
+                .font(.system(size: 12))
+                .fixedSize(horizontal: false, vertical: true)
         }
-        // The leading edge meets the cards' text; the borderless menu carries
-        // about 3 pt of its own trailing inset, taken back so its chevron does too.
-        .padding(.leading, 21)
-        .padding(.trailing, 18)
-        .frame(height: 34)
+        .foregroundStyle(monitor.error == nil ? Color.inkMuted : Color.alert)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 16)
     }
 
-    private var footer: some View {
-        HStack(spacing: 0) {
-            Toggle("Start at login", isOn: $launchAtLogin)
-                .toggleStyle(.checkbox)
-                .font(.system(size: 12))
-                .foregroundStyle(Color.inkMuted)
-                .padding(.horizontal, 8)
+    private func footer(now: Date) -> some View {
+        HStack(spacing: 8) {
+            Text(freshness(now: now))
+                .font(.system(size: 11))
+                .monospacedDigit()
+                .foregroundStyle(Color.inkFaint)
+                .lineLimit(1)
 
             Spacer(minLength: 0)
 
-            Button { NSApplication.shared.terminate(nil) } label: {
-                Text("Quit")
-                    .font(.system(size: 12))
+            Menu {
+                Toggle("Start at Login", isOn: $launchAtLogin)
+                Button("Open Usage Page") {
+                    if let url = URL(string: "https://claude.ai/settings/usage") { NSWorkspace.shared.open(url) }
+                }
+                Divider()
+                Button("Quit Perch") { NSApplication.shared.terminate(nil) }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .font(.system(size: 13))
                     .foregroundStyle(Color.inkMuted)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
             }
-            .buttonStyle(PerchPlainButtonStyle())
-            .help("Quit Perch")
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("Settings and Quit")
+            .accessibilityLabel("Settings")
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 6)
-        .frame(minHeight: 41)
-        .background(.white.opacity(0.025))
+        .padding(.leading, 16)
+        .padding(.trailing, 12)
+        .frame(height: 34)
+    }
+
+    /// When the newest reading landed. Per-account staleness is said on the
+    /// account itself; this line is the panel's overall heartbeat.
+    private func freshness(now: Date) -> String {
+        guard monitor.isMultiAccount else {
+            if monitor.isStale { return "Showing cached numbers" }
+            return monitor.headline == nil ? "" : "Updated every 3 min"
+        }
+        let newest = monitor.accounts.filter { !$0.isSignedOut }.compactMap(\.observedAt).max()
+        guard let newest else { return "No readings yet" }
+        let minutes = max(0, Int(now.timeIntervalSince(newest)) / 60)
+        return switch minutes {
+        case ..<1:    "Updated just now"
+        case ..<60:   "Updated \(minutes)m ago"
+        case ..<1440: "Updated \(minutes / 60)h ago"
+        default:      "Updated \(minutes / 1440)d ago"
+        }
     }
 }
 

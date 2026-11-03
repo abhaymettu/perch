@@ -32,7 +32,7 @@ enum Shell {
             }
 
             // Drain first, then reap. Waiting first deadlocks the moment output
-            // fills the 64K pipe buffer — `ps -axo args=` clears that on its own.
+            // fills the 64K pipe buffer, `ps -axo args=` clears that on its own.
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
             process.waitUntilExit()
             continuation.resume(returning: String(data: data, encoding: .utf8))

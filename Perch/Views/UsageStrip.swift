@@ -1,11 +1,11 @@
 import AppKit
 import SwiftUI
 
+/// The single-account panel: the signed-in account's week and model windows,
+/// read from the usage endpoint. Clicking it opens the usage page.
 struct UsageStrip: View {
     let monitor: LimitsMonitor
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var isHovered = false
+    let now: Date
 
     var body: some View {
         Button {
@@ -13,103 +13,42 @@ struct UsageStrip: View {
             NSWorkspace.shared.open(url)
         } label: {
             VStack(alignment: .leading, spacing: 0) {
-                caption
-
-                // On a clock, so a reset that passes between polls shows as passed.
-                TimelineView(.periodic(from: .now, by: 15)) { context in
-                    HStack(alignment: .top, spacing: 13) {
-                        ForEach(monitor.limits) { limit in
-                            UsageColumn(limit: limit, now: context.date)
-                        }
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("Claude")
+                        .font(.system(size: 13, weight: .semibold))
+                    if let model = monitor.model {
+                        Text(model)
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color.inkFaint)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 8)
+                    if monitor.isStale {
+                        Label("Cached", systemImage: "clock")
+                            .labelStyle(.titleAndIcon)
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color.alert)
+                    } else {
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(Color.inkFaint)
+                            .accessibilityHidden(true)
                     }
                 }
-                .padding(.top, 12)
 
-                if monitor.isStale || monitor.error != nil {
-                    PerchHairline()
-                        .padding(.top, 10)
-                        .padding(.bottom, 8)
-                    freshness
+                if let week = monitor.headline {
+                    WeekBlock(limit: week, now: now)
+                        .padding(.top, 9)
+                }
+                ForEach(monitor.limits.filter { $0.modelName != nil }) { model in
+                    ModelLine(limit: model, now: now)
+                        .padding(.top, 8)
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 12)
-            .padding(.bottom, 11)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.white.opacity(isHovered ? 0.045 : 0))
-            .perchGlassCard(radius: 11)
-            .contentShape(RoundedRectangle(cornerRadius: 11))
         }
-        .buttonStyle(.plain)
-        .onHover { isHovered = $0 }
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.13), value: isHovered)
-        .help(
-            [Optional("Open usage settings"), monitor.error]
-                .compactMap { $0 }
-                .joined(separator: " · ")
-        )
-        .accessibilityLabel(
-            "\(monitor.isStale ? "Cached usage" : "Usage")\(monitor.model.map { " for \($0)" } ?? "")"
-        )
-        .accessibilityValue(accessibilitySummary)
+        .buttonStyle(PanelRowButtonStyle())
+        .help([Optional("Open usage settings"), monitor.error].compactMap { $0 }.joined(separator: " · "))
         .accessibilityHint("Open usage settings")
-    }
-
-    private var caption: some View {
-        HStack(spacing: 6) {
-            Text("Usage")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.ink)
-
-            Spacer(minLength: 4)
-
-            if let model = monitor.model {
-                Text(model)
-                    .font(.system(size: 11))
-                    .foregroundStyle(Color.inkMuted)
-                    .lineLimit(1)
-            }
-
-            Image(systemName: "arrow.up.right")
-                .font(.system(size: 10))
-                .foregroundStyle(Color.inkMuted)
-                .accessibilityHidden(true)
-        }
-        .frame(height: 17)
-    }
-
-    @ViewBuilder
-    private var freshness: some View {
-        if monitor.isStale {
-            HStack(spacing: 5) {
-                Image(systemName: "clock")
-                    .font(.system(size: 11))
-                    .accessibilityHidden(true)
-                // The supplied monitor interface exposes staleness, not a
-                // successful-fetch timestamp. Never invent an update age.
-                Text("Cached")
-                    .font(.system(size: 11))
-            }
-            .foregroundStyle(Color.inkMuted)
-            .help(monitor.error ?? "Showing cached usage")
-        } else if let error = monitor.error {
-            HStack(alignment: .top, spacing: 5) {
-                PerchStatusMark(state: .warning)
-                Text("Unavailable · \(error)")
-                    .font(.system(size: 11))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .foregroundStyle(Color.alert)
-            .help(error)
-        }
-    }
-
-    private var accessibilitySummary: String {
-        var parts = monitor.limits.map {
-            "\($0.shortTitle) \($0.percent) percent" + ($0.countdown().isEmpty ? "" : ", resets in \($0.countdown())")
-        }
-        if monitor.isStale { parts.append("Cached") }
-        if let error = monitor.error { parts.append(error) }
-        return parts.joined(separator: ", ")
     }
 }

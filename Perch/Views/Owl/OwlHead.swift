@@ -11,9 +11,9 @@ struct OwlHead: View {
     private var scale: CGFloat { size / OwlGeometry.baseSize }
     private var eyeOpenness: CGFloat { OwlGeometry.eyeOpenness(for: eyeState) }
 
-    /// Same glass family as `perchGlassCard`: a translucent fill lit from the
+    /// Glass: a translucent fill lit from the
     /// top-left, a rim brighter at the top than the bottom, and a soft cast
-    /// shadow — so the owl reads as the same material as the panel it sits in.
+    /// shadow, so the owl reads as the same material as the panel it sits in.
     private let faceTopColor = Color.white.opacity(0.22)
     private let faceBottomColor = Color.white.opacity(0.10)
     private let rimTopColor = Color.white.opacity(0.55)
@@ -50,7 +50,7 @@ struct OwlHead: View {
             )
 
             // A soft specular patch near the top edge, like light catching the
-            // curved top of a glass card. Purely additive — no shape change.
+            // curved top of a glass card. Purely additive, no shape change.
             var sheen = Path()
             sheen.addRoundedRect(
                 in: CGRect(

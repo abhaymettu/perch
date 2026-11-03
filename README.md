@@ -4,9 +4,8 @@
 </h1>
 
 <p align="center">
-An owl that lives in your menu bar and keeps an eye on everything running on your Mac:
-Claude Code sessions, dev servers, background agents, cron jobs, simulators, and how much of your
-Claude usage limit is left.
+An owl that lives in your menu bar and tells you how much of your Claude week is gone, for every
+account you use, and when each one resets.
 </p>
 
 <p align="center">
@@ -16,35 +15,37 @@ Claude usage limit is left.
 </p>
 
 <p align="center">
-  <img src=".github/screenshot.png" width="340" alt="The Perch panel: usage strip, the roost of section chips, and Claude session rows" />
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset=".github/screenshot-light.png" />
+    <img src=".github/screenshot.png" width="338" alt="The Perch popover: two Claude accounts, each with its plan beside the name, the week's percent used, when it resets, and the Fable week underneath" />
+  </picture>
 </p>
 
-Everything above was four things before: a usage-ring app, a SwiftBar plugin, `ps | grep claude`,
-and no answer at all for which agents were still running. Perch is one panel, one poll, one icon.
+> This branch is the two-account build. `main` is the single-account Perch with the full panel
+> (sessions, dev servers, agents, cron, simulators).
 
-## What it watches
+## What it shows
 
-- **Claude Code sessions.** One row per session, not per process, grouped by kind and working
-  directory. Remote-control lanes, interactive terminals, and headless `--print` runs are told
-  apart and aged separately, because a lane idle for two days is normal and a headless run alive
-  for seventeen hours is not.
-- **Usage limits.** Session and weekly windows as percent-of-limit, with the time until each
-  resets. The leading number rides in the menu bar next to the owl.
-- **Dev servers.** Every listening port with its framework and project name, detected across
-  Next.js, Vite, Nuxt, Remix, Astro, Django, Flask, Rails and more. Stop and relaunch in one
-  click; when a restart doesn't come back, the row says why instead of going quiet.
-- **Background agents and cron.** Every LaunchAgent in `~/Library/LaunchAgents` with its
-  schedule and whether it is running, idle, or failed, plus active crontab lines. Read-only on
-  purpose (see below).
-- **Simulators.** Booted simulators with device, runtime, and the app running inside. Click one
-  to focus its window.
+- **One section per account.** The name, its plan in small grey type beside it ("Ultra"), the
+  share of the week already used, and the time until the week resets. The model's own week
+  (Fable) sits on one quiet line underneath.
+- **The menu bar number.** Beside the owl, the week's percent used for whichever account you
+  pick, like the battery item shows its charge. Click an account in the popover to put it in the
+  menu bar; the filled ring marks the one that is there.
+- **Only what exists.** There is no 5-hour session window any more, so there is no session row.
+  A window that is not reported is not drawn, never shown as a blank or a 0.
+- **Trouble, in words.** A spent week reads "limit reached" in amber. A reading older than 15
+  minutes says "Stale" with its age. A signed-out account collapses to one line that says so.
+  Colour never carries the meaning on its own.
 
-Sections collapse, empty ones hide themselves, and it can start at login.
+The panel follows the system's light or dark appearance on the standard popover material. The
+footer says when the newest reading landed, and the ⋯ menu holds Start at Login, the usage page
+and Quit.
 
 ## The owl
 
 <p align="center">
-  <img src=".github/menubar.png" width="264" alt="The Perch status item in the macOS menu bar, showing the owl beside the current usage percentages" />
+  <img src=".github/menubar.png" width="264" alt="The Perch status item in the macOS menu bar: the owl beside 65%" />
 </p>
 
 The glyph is not an image asset. A status item is a 22pt monochrome template, which rules out
@@ -66,9 +67,9 @@ rectangle for about an eighth of a second. That blank frame is the reason the tu
 feature rides a vertical cylinder standing inside the head, so turning foreshortens the eyes and
 carries the far one out of sight, which two circles sliding sideways can never do.
 
-When nothing is running the eyes sit half shut. When something goes stale or fails the owl
-startles, goes wide-eyed, and turns red, and it stays red until you deal with it. That is the only
-motion in the app that means anything; the rest is a bird filling time.
+Before the first reading, and while the account you picked is signed out, the eyes sit half
+shut. When a reading goes stale or a window turns critical the owl startles, goes wide-eyed,
+and turns red, and it stays red until you deal with it. That is the only motion in the app that means anything; the rest is a bird filling time.
 
 Nothing loops. A menu bar item in constant motion reads as a twitch rather than as an animal, so
 every behaviour ends back at rest.
@@ -80,7 +81,7 @@ one colour.
 
 ## The iOS widget
 
-`Widget/Perch Usage.js` is a [Scriptable](https://scriptable.app) widget showing the same three
+`Widget/Perch Usage.js` is a [Scriptable](https://scriptable.app) widget showing the same
 usage numbers, watched over by the same owl: it dozes when the account is quiet, blinks and
 glances around when things are normal, and goes wide-eyed and red as a limit closes in.
 
@@ -103,51 +104,23 @@ Or open `Perch.xcodeproj` and hit run. Requires macOS 14 (Sonoma) or later.
 
 ## Network and privacy
 
-Perch makes one network request, and only if you use Claude Code:
+With more than one account, Perch reads `~/.local/state/perch-usage/state.json`, written by a
+separate poller that checks each account with that account's own Keychain item. Perch itself
+makes no network call for it and never sees those tokens.
+
+With a single account, Perch makes one network request:
 
 - Every 180 seconds it `GET`s `https://api.anthropic.com/api/oauth/usage` to read your rate-limit
   percentages. Nothing is sent but the request itself.
 - It authenticates with the OAuth token Claude Code already stores in your login Keychain, read
   per-request via `/usr/bin/security` and held only for the length of the request. The token is
   never written to disk, never logged, and never sent anywhere except Anthropic.
-- If the token is missing or expired, the usage strip hides itself and nothing else changes.
 
-Everything else, meaning processes, ports, agents and simulators, is read locally. No telemetry,
-no analytics, no update check, no elevated permissions, no background daemon.
-
-## Why the agents are read-only
-
-Perch will show you a LaunchAgent's state but will not start, stop, or unload it. A menubar panel
-is the wrong place for a control whose misfire takes down something you rely on and gives you no
-way to bring it back. Reveal the plist and use `launchctl` if you mean it.
-
-Claude sessions and dev servers *are* killable, because those are cheap to restart.
-
-## How it works
-
-Perch polls every few seconds using standard macOS tools:
-
-- **Port scanning.** `lsof` to find listening TCP ports
-- **Process classification.** `ps`, matching on `argv[0]` and the resolved binary, never a
-  substring search over the full argument string
-- **Project names.** Reads `package.json`, `Cargo.toml`, or falls back to the directory name
-- **Agents and cron.** `launchctl list` cross-referenced against the plists on disk, and `crontab -l`
-- **Simulators.** `xcrun simctl` for booted simulator data
-
-That second bullet is load-bearing. `ps aux | grep claude` reports about 341 processes on a
-machine running roughly 25, because it also matches the `.claude/shell-snapshots/` path inside
-every unrelated shell. Matching the resolved executable instead of a substring of the argument
-string is the difference between a useful list and noise.
-
-Restarting is less obvious than it sounds. The process holding a port often can't be relaunched
-from its own arguments, because Next.js and npm both overwrite their `argv` with a display title
-and `argv[0]` is usually a bare name like `node` rather than a path. So Perch reads the real
-arguments and the resolved binary from the kernel, and walks up the parent chain to find a process
-that can actually be launched again, never straying outside the server's own project directory.
+No telemetry, no analytics, no update check, no elevated permissions.
 
 ## Tech
 
-- SwiftUI, in an `NSPanel` hung off an `NSStatusItem`
+- SwiftUI, in an `NSPanel` hung off an `NSStatusItem`, on the system popover material
 - Swift concurrency (async/await, `TaskGroup`)
 - `@Observable` for reactive state
 - `SMAppService` for start at login
@@ -155,7 +128,9 @@ that can actually be launched again, never straying outside the server's own pro
 
 Design work happens in a preview harness rather than the live panel, because the panel is
 invisible to Accessibility and awkward to screenshot. Set `PERCH_UI_PREVIEW` and the app opens a
-window rendering every UI state side by side. See `Perch/Design/PreviewHarness.swift`.
+window rendering every UI state side by side; add `PERCH_APPEARANCE=light` for the light panel.
+`./shot.sh out.png` builds, renders and writes that window to a PNG. See
+`Perch/Design/PreviewHarness.swift`.
 
 ## Contributing
 
@@ -164,8 +139,7 @@ Issues and PRs welcome. Branch off `main`, keep the diff small, and say what it 
 ## Credits
 
 Perch started as a fork of [Blink](https://github.com/megootronic/Blink) by
-[Mo](https://mo.software), which is where the dev server and simulator monitoring comes from.
-Claude session tracking, usage limits, LaunchAgents, cron and the owl were added here.
+[Mo](https://mo.software). This build keeps only the usage limits and the owl.
 
 ## License
 

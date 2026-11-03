@@ -15,48 +15,37 @@ struct PreviewScenario {
 
 extension PreviewScenario {
 
-    static let all: [PreviewScenario] = [accounts, mainPicked, mainSignedOut, secondStale, normal, hot, unavailable]
+    static let all: [PreviewScenario] = [accounts, mainPicked, mainSignedOut, secondStale, normal, unavailable]
 
     private static func resets(in hours: Double) -> Date {
         Date().addingTimeInterval(hours * 3600)
     }
 
-    /// The numbers the live endpoint returned on 2026-10-06 19:30 CDT.
-    static let normal = PreviewScenario(name: "normal", limits: [
-        UsageLimit(kind: "session", percent: 13, severity: "normal", resetsAt: resets(in: 2.0), modelName: nil),
+    static let normal = PreviewScenario(name: "single account", limits: [
         UsageLimit(kind: "weekly_all", percent: 37, severity: "normal", resetsAt: resets(in: 70), modelName: nil),
         UsageLimit(kind: "weekly_scoped", percent: 6, severity: "normal", resetsAt: resets(in: 70), modelName: "Fable"),
     ])
 
-    static let hot = PreviewScenario(name: "hot", limits: [
-        UsageLimit(kind: "session", percent: 96, severity: "critical", resetsAt: resets(in: 0.6), modelName: nil),
-        UsageLimit(kind: "weekly_all", percent: 81, severity: "warning", resetsAt: resets(in: 30), modelName: nil),
-        UsageLimit(kind: "weekly_scoped", percent: 64, severity: "normal", resetsAt: resets(in: 30), modelName: "Fable"),
-    ])
-
-    /// The 2026-10-09 11:40 shape: both accounts signed in, the Second account
-    /// the default. Main's 5h window is fresh at 0%, its week nearly spent.
+    /// The 2026-11-02 shape: both accounts on Ultra, no session window, the
+    /// Main account's week spent until Thursday, the Second account the default.
     private static func pair(second: AccountUsage = second, main: AccountUsage = main) -> [AccountUsage] { [second, main] }
 
     private static let second = AccountUsage(id: "acct2", label: "Second account", email: "second@example.com",
-                                             status: "live", reason: nil, windows: [
-        UsageLimit(kind: "session", percent: 15, severity: "normal", resetsAt: resets(in: 3.3), modelName: nil),
-        UsageLimit(kind: "weekly_all", percent: 3, severity: "normal", resetsAt: resets(in: 33.3), modelName: nil),
-        UsageLimit(kind: "weekly_scoped", percent: 1, severity: "normal", resetsAt: resets(in: 33.3), modelName: "Fable"),
+                                             plan: "Ultra", status: "live", reason: nil, windows: [
+        UsageLimit(kind: "weekly_all", percent: 65, severity: "normal", resetsAt: resets(in: 116.5), modelName: nil),
+        UsageLimit(kind: "weekly_scoped", percent: 6, severity: "normal", resetsAt: resets(in: 116.5), modelName: "Fable"),
     ], observedAt: Date().addingTimeInterval(-90))
 
     private static let main = AccountUsage(id: "acct1", label: "Main account", email: "you@example.com",
-                                           status: "live", reason: nil, windows: [
-        UsageLimit(kind: "session", percent: 0, severity: "normal", resetsAt: resets(in: 4.9), modelName: nil),
-        UsageLimit(kind: "weekly_all", percent: 99, severity: "critical", resetsAt: resets(in: 6.3), modelName: nil),
-        UsageLimit(kind: "weekly_scoped", percent: 26, severity: "normal", resetsAt: resets(in: 6.3), modelName: "Fable"),
+                                           plan: "Ultra", status: "live", reason: nil, windows: [
+        UsageLimit(kind: "weekly_all", percent: 100, severity: "normal", resetsAt: resets(in: 89.4), modelName: nil),
+        UsageLimit(kind: "weekly_scoped", percent: 4, severity: "normal", resetsAt: resets(in: 89.4), modelName: "Fable"),
     ], observedAt: Date().addingTimeInterval(-90))
 
-    /// Before the re-login: signed out on this Mac, last numbers kept, no Fable ever observed.
+    /// Signed out on this Mac: collapses to its header.
     private static let mainSignedOutRow = AccountUsage(id: "acct1", label: "Main account", email: "you@example.com",
-                                                       status: "removed-needs-reauth",
-                                                       reason: "Signed out of ~/.claude 2026-10-09 10:05 CDT; not restored", windows: [
-        UsageLimit(kind: "session", percent: 4, severity: "normal", resetsAt: resets(in: -0.4), modelName: nil),
+                                                       plan: "Ultra", status: "removed-needs-reauth",
+                                                       reason: "Signed out of this Mac; not restored", windows: [
         UsageLimit(kind: "weekly_all", percent: 99, severity: "normal", resetsAt: resets(in: 7), modelName: nil),
     ], observedAt: Date().addingTimeInterval(-55 * 60))
 
@@ -65,19 +54,16 @@ extension PreviewScenario {
     static let mainPicked = PreviewScenario(name: "main picked", accounts: pair(), menuBarAccount: "acct1")
 
     static let mainSignedOut = PreviewScenario(name: "main signed out", accounts: pair(main: mainSignedOutRow),
-                                               menuBarAccount: "acct1")
+                                               menuBarAccount: "acct2")
 
     /// The poller missed three polls while the Second account ran hot.
     static let secondStale = PreviewScenario(name: "second stale", accounts: pair(second: AccountUsage(
-        id: "acct2", label: "Second account", email: "second@example.com", status: "live", reason: nil, windows: [
-            UsageLimit(kind: "session", percent: 84, severity: "warning", resetsAt: resets(in: 1.2), modelName: nil),
-            UsageLimit(kind: "weekly_all", percent: 41, severity: "normal", resetsAt: resets(in: 34), modelName: nil),
+        id: "acct2", label: "Second account", email: "second@example.com", plan: "Ultra", status: "live", reason: nil, windows: [
+            UsageLimit(kind: "weekly_all", percent: 84, severity: "warning", resetsAt: resets(in: 34), modelName: nil),
             UsageLimit(kind: "weekly_scoped", percent: 22, severity: "normal", resetsAt: resets(in: 34), modelName: "Fable"),
         ], observedAt: Date().addingTimeInterval(-22 * 60))))
 
-    static let stale = PreviewScenario(name: "stale", limits: normal.limits, error: "Usage API returned 429", stale: true)
-
-    static let unavailable = PreviewScenario(name: "unavailable", error: "Session expired — run /login")
+    static let unavailable = PreviewScenario(name: "unavailable", error: "Signed out, run /login")
 
     var monitor: LimitsMonitor {
         LimitsMonitor(frozen: limits, error: error, stale: stale, accounts: accounts,
@@ -92,6 +78,9 @@ enum PreviewHarness {
     static var isEnabled: Bool { !(ProcessInfo.processInfo.environment["PERCH_UI_PREVIEW"] ?? "").isEmpty }
 
     private static var window: NSWindow?
+
+    /// `PERCH_APPEARANCE=light` renders the light panel; dark otherwise.
+    private static var isLight: Bool { ProcessInfo.processInfo.environment["PERCH_APPEARANCE"] == "light" }
 
     /// The status item as the real one draws it: the owl image, then the title in
     /// the button's 11pt medium monospaced-digit font, on a bar-coloured strip.
@@ -144,7 +133,7 @@ enum PreviewHarness {
         let gap: CGFloat = 26
         let scenarios = PreviewScenario.all
         let width = (UsagePopup.panelWidth + gap) * CGFloat(scenarios.count) + gap
-        let height: CGFloat = 800
+        let height: CGFloat = ProcessInfo.processInfo.environment["PERCH_UI_PREVIEW"] == "owl" ? 800 : 420
 
         let content = VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .top, spacing: gap) {
@@ -158,18 +147,18 @@ enum PreviewHarness {
                         Text(scenario.name.uppercased())
                             .font(.system(size: 9, weight: .semibold, design: .monospaced))
                             .tracking(1.4)
-                            .foregroundStyle(Color.white.opacity(0.3))
+                            .foregroundStyle(Color.inkFaint)
                     }
                     .frame(width: UsagePopup.panelWidth, alignment: .top)
                 }
             }
-            Filmstrip()
+            if ProcessInfo.processInfo.environment["PERCH_UI_PREVIEW"] == "owl" { Filmstrip() }
         }
         .padding(gap)
         .frame(width: width, height: height, alignment: .topLeading)
-        // A flat mid-grey, not black: the panel's material is translucent and
-        // over pure black every surface token reads darker than it ships.
-        .background(Color(hex: 0x3A3A42))
+        // A flat desktop tone per appearance: the panel's material is
+        // translucent and over pure black every surface reads darker than it ships.
+        .background(Self.isLight ? Color(hex: 0xD9DBE0) : Color(hex: 0x3A3A42))
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: width, height: height),
@@ -177,7 +166,8 @@ enum PreviewHarness {
             backing: .buffered,
             defer: false
         )
-        window.title = "Perch — UI preview"
+        window.title = "Perch UI preview"
+        window.appearance = NSAppearance(named: Self.isLight ? .aqua : .darkAqua)
         window.contentView = NSHostingView(rootView: content)
         Self.window = window
         // A shot is drawn from the window's own backing store, so it never needs

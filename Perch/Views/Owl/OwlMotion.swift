@@ -81,7 +81,7 @@ enum OwlMotion {
         }
     }
 
-    /// Shut fast, hold a beat, open slow. A symmetric blink looks mechanical —
+    /// Shut fast, hold a beat, open slow. A symmetric blink looks mechanical -
     /// the asymmetry is most of what sells it as an eyelid.
     private static func lid(at elapsed: TimeInterval) -> CGFloat {
         if elapsed < closeDuration {
@@ -148,7 +148,7 @@ enum OwlMotion {
     /// All the way round, not most of the way and back. Halfway through, the
     /// turn passes ±π: every eye and the beak cull, and for about an eighth of a
     /// second the menu bar shows a plain rounded rectangle. That blank frame is
-    /// the whole move — it is the back of the owl's head, and it is why the
+    /// the whole move, it is the back of the owl's head, and it is why the
     /// features are projected onto a cylinder instead of just sliding sideways.
     static func swivel(toward direction: CGFloat) -> OwlMove {
         let sweep: TimeInterval = 1.05
@@ -158,7 +158,7 @@ enum OwlMotion {
         return OwlMove(duration: sweep + hold) { elapsed in
             // Cubic rather than quadratic on the way round. Roughly a third of
             // the sweep is angle at which nothing is visible, and easing that
-            // hard means the owl crosses it fast — the blank is a beat, not a
+            // hard means the owl crosses it fast, the blank is a beat, not a
             // stall.
             let progress: CGFloat
             if elapsed < half {
@@ -177,7 +177,7 @@ enum OwlMotion {
 
     /// Fired when a problem appears, so it is the one move that means something
     /// rather than filling time. Eyes wide, a small jump, a landing that squashes
-    /// the head — then straight back to resting, because the red tint is already
+    /// the head, then straight back to resting, because the red tint is already
     /// carrying the state and the motion only has to announce the change.
     static func startle() -> OwlMove {
         let duration: TimeInterval = 0.5
