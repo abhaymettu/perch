@@ -257,10 +257,19 @@ enum PreviewHarness {
 
     /// Renders the window's own backing store to a PNG, which needs no Screen
     /// Recording grant. Every failure shows up as a missing file.
+    /// `PERCH_SHOT_SCALE=3` renders at 3x instead of the screen's scale.
     private static func write(_ window: NSWindow, to path: String) {
         guard let view = window.contentView,
-              let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
+              var rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
 
+        if let scale = ProcessInfo.processInfo.environment["PERCH_SHOT_SCALE"].flatMap(Double.init),
+           let scaled = NSBitmapImageRep(
+               bitmapDataPlanes: nil, pixelsWide: Int(view.bounds.width * scale),
+               pixelsHigh: Int(view.bounds.height * scale), bitsPerSample: 8, samplesPerPixel: 4,
+               hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) {
+            scaled.size = view.bounds.size
+            rep = scaled
+        }
         view.cacheDisplay(in: view.bounds, to: rep)
         try? rep.representation(using: .png, properties: [:])?
             .write(to: URL(fileURLWithPath: path))
