@@ -37,6 +37,7 @@
     "result": "One section per account with its plan, the week's percent used, the reset countdown and the Fable week, plus the picked account's percent beside the owl. With the popover closed it uses 0.18% of one core and 23 MB with the owl still, and 2.1% with the owl idling.",
     "catch": "The usage figures come from an undocumented Anthropic endpoint that can change, several accounts need a poller Perch does not include, and the app is not notarized, so a downloaded copy needs the quarantine flag cleared.",
     "method": "Every number comes from Scripts/bench.py, which builds its own Release copy under a separate bundle id and runs it with the popover closed. Measured for 2.0 on an M4 Pro, macOS 26, about 1,170 processes, one two-minute run each.",
-    "foot": "Usage comes from an undocumented endpoint; not notarized yet."
+    "foot": "Usage comes from an undocumented endpoint; not notarized yet.",
+    "home": "none"
   }
 }
