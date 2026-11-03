@@ -36,3 +36,7 @@ Working log for the 1.3 release lane. Newest entries at the bottom.
   installed 1.3, codesign verify ok, no quarantine xattr; uninstalled after. Fresh clone of main built with
   `xcodebuild -scheme Perch -configuration Release build`: BUILD SUCCEEDED. His live /Applications Perch (pid 77609)
   untouched throughout.
+- 2026-11-03: 2.0. Merged popover-refresh (6a78f19) into main: usage-only two-account popover replaces the
+  full panel (kept at tag v1.3). Kept from main: Shell watchdog, owl idles only when seen, public bundle id,
+  ad-hoc release.sh, bench.py. Added PERCH_UI_PREVIEW=hero for the popover. Bench, Release, 120 s: owl still
+  0.18% / 0.05% / 23 MB / 1.78 wakeups/s; owl idling 2.05% / 1.92% / 125 MB / 31.64.

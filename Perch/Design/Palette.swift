@@ -28,40 +28,32 @@ extension Color {
     static let alert = adaptive("alert", light: 0x805601, dark: 0xFFD079)
     static let xcode = adaptive("xcode", light: 0x555C66, dark: 0xD2D5DC)
 
-    /// Hover fills, rules, tracks and strokes: white over the dark material,
-    /// black over the light one. Black reads about twice as heavy as white at
-    /// the same alpha, so the light side gets a little over half of it.
-    static func wash(_ alpha: Double) -> Color {
-        dynamic(dark: NSColor(white: 1, alpha: alpha), light: NSColor(white: 0, alpha: alpha * 0.55))
-    }
+    static let glassWarning = Color(hex: 0xFFD078)
 
-    /// A recessed surface (an open section, a log box). Darker in both modes.
-    static func sink(_ alpha: Double) -> Color {
-        dynamic(dark: NSColor(white: 0, alpha: alpha), light: NSColor(white: 0, alpha: alpha * 0.3))
-    }
-
-    static let cardTint = dynamic(dark: NSColor(srgbHex: 0x313741, alpha: 0.51), light: NSColor(white: 1, alpha: 0.55))
-    static let shellTint = dynamic(dark: NSColor(srgbHex: 0x161B23, alpha: 0.34), light: NSColor(white: 1, alpha: 0.32))
+    // The popover. Base is what the material settles to, for the cut-out in
+    // the menu bar mark; the rest are thin enough to sit on the material.
+    static let panelBase = adaptive("base", light: 0xECECEE, dark: 0x2A2C31)
+    static let panelStroke = adaptiveAlpha("stroke", light: (0x000000, 0.10), dark: (0xFFFFFF, 0.14))
+    static let panelDivider = adaptiveAlpha("divider", light: (0x000000, 0.08), dark: (0xFFFFFF, 0.09))
+    static let rowHover = adaptiveAlpha("rowHover", light: (0x000000, 0.045), dark: (0xFFFFFF, 0.06))
+    static let rowPress = adaptiveAlpha("rowPress", light: (0x000000, 0.08), dark: (0xFFFFFF, 0.10))
+    static let meterTrack = adaptiveAlpha("meterTrack", light: (0x000000, 0.09), dark: (0xFFFFFF, 0.12))
+    static let meterFill = adaptive("meterFill", light: 0x3A3D44, dark: 0xE6E7EA)
 
     private static func adaptive(_ name: String, light: UInt32, dark: UInt32) -> Color {
-        dynamic(dark: NSColor(srgbHex: dark), light: NSColor(srgbHex: light))
+        adaptiveAlpha(name, light: (light, 1), dark: (dark, 1))
     }
 
-    private static func dynamic(dark: NSColor, light: NSColor) -> Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
-            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
+    private static func adaptiveAlpha(_ name: String, light: (UInt32, CGFloat), dark: (UInt32, CGFloat)) -> Color {
+        Color(nsColor: NSColor(name: NSColor.Name("Perch.\(name)")) { appearance in
+            let (hex, alpha) = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
+            return NSColor(
+                srgbRed: CGFloat((hex >> 16) & 0xFF) / 255,
+                green: CGFloat((hex >> 8) & 0xFF) / 255,
+                blue: CGFloat(hex & 0xFF) / 255,
+                alpha: alpha
+            )
         })
-    }
-}
-
-private extension NSColor {
-    convenience init(srgbHex hex: UInt32, alpha: CGFloat = 1) {
-        self.init(
-            srgbRed: CGFloat((hex >> 16) & 0xFF) / 255,
-            green: CGFloat((hex >> 8) & 0xFF) / 255,
-            blue: CGFloat(hex & 0xFF) / 255,
-            alpha: alpha
-        )
     }
 }
 
@@ -76,151 +68,46 @@ extension Font {
     static let statFoot = Font.system(size: 9)
 }
 
-// Shared presentation-only primitives live in an existing target source file.
-enum PerchMark {
-    case healthy, warning, unchecked, working
-}
-
-struct PerchStatusMark: View {
-    let state: PerchMark
-
-    var body: some View {
-        ZStack {
-            switch state {
-            case .healthy:
-                Image(systemName: "checkmark.circle")
-                    .resizable()
-                    .scaledToFit()
-            case .warning:
-                Image(systemName: "exclamationmark.triangle")
-                    .resizable()
-                    .scaledToFit()
-            case .working:
-                Image(systemName: "clock")
-                    .resizable()
-                    .scaledToFit()
-            case .unchecked:
-                Circle()
-                    .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [2, 3]))
-                Rectangle()
-                    .frame(width: 5, height: 1)
-            }
-        }
-        .frame(width: 13, height: 13)
-        .accessibilityHidden(true)
-    }
-}
-
-struct PerchStateLabel: View {
-    let word: String
-    var state: PerchMark = .healthy
-
-    var body: some View {
-        HStack(spacing: 4) {
-            PerchStatusMark(state: state)
-            Text(word)
-                .lineLimit(1)
-        }
-        .font(.system(size: 11))
-        .foregroundStyle(state == .warning ? Color.alert : Color.inkMuted)
-        .accessibilityElement(children: .combine)
-    }
-}
-
 struct PerchHairline: View {
     var body: some View {
-        LinearGradient(
-            stops: [
-                .init(color: .clear, location: 0),
-                .init(color: .wash(0.19), location: 0.28),
-                .init(color: .wash(0.12), location: 0.72),
-                .init(color: .clear, location: 1)
-            ],
-            startPoint: .leading,
-            endPoint: .trailing
-        )
-        .frame(height: 1)
-        .accessibilityHidden(true)
+        Rectangle()
+            .fill(Color.panelDivider)
+            .frame(height: 1)
+            .accessibilityHidden(true)
     }
 }
 
-private struct PerchGlassCard: ViewModifier {
-    var radius: CGFloat
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    func body(content: Content) -> some View {
-        content
-            .background {
-                if reduceTransparency {
-                    RoundedRectangle(cornerRadius: radius, style: .continuous)
-                        .fill(Color.panelSurface)
-                } else {
-                    RoundedRectangle(cornerRadius: radius, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: radius, style: .continuous)
-                                .fill(Color.cardTint)
-                        }
-                        .overlay {
-                            RoundedRectangle(cornerRadius: radius, style: .continuous)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [.white.opacity(0.09), .white.opacity(0.025), .clear],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                        }
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .strokeBorder(Color.wash(0.15), lineWidth: 1)
-                    .allowsHitTesting(false)
-            }
-            .overlay(alignment: .top) {
-                PerchHairline()
-                    .padding(.horizontal, 9)
-                    .allowsHitTesting(false)
-            }
-            .shadow(color: .black.opacity(0.14), radius: 5, x: 0, y: 3)
-    }
-}
-
-extension View {
-    func perchGlassCard(radius: CGFloat = 10) -> some View {
-        modifier(PerchGlassCard(radius: radius))
-    }
-}
-
-struct PerchPlainButtonStyle: ButtonStyle {
+/// A full-width row that reads as one target: a soft fill on hover, a firmer
+/// one while pressed, both instant on the way in and quick on the way out.
+struct PanelRowButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        PerchPlainButtonBody(
-            label: configuration.label,
-            isPressed: configuration.isPressed
-        )
+        PanelRowBody(label: configuration.label, isPressed: configuration.isPressed)
     }
 }
 
-private struct PerchPlainButtonBody<Label: View>: View {
+private struct PanelRowBody<Label: View>: View {
     let label: Label
     let isPressed: Bool
     @State private var hovered = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         label
+            .padding(.horizontal, 10)
+            .padding(.top, 10)
+            .padding(.bottom, 11)
             .background {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.wash(isPressed ? 0.12 : (hovered ? 0.07 : 0)))
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(isPressed ? Color.rowPress : (hovered ? Color.rowHover : .clear))
             }
-            .contentShape(Rectangle())
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .onHover { hovered = $0 }
+            .animation(reduceMotion || isPressed || hovered ? nil : .easeOut(duration: 0.15), value: hovered)
     }
 }
 
-/// The visual effect samples behind the NSPanel, rather than blurring only
-/// SwiftUI siblings. No window ownership, sizing or event contract is changed.
+/// The system popover material, sampled from behind the window, following
+/// the system appearance like any other menu bar extra.
 struct PerchWindowBackdrop: NSViewRepresentable {
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = PerchVisualEffectView()
@@ -252,35 +139,11 @@ struct PerchPanelShell: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        ZStack {
+        Group {
             if reduceTransparency {
-                Color.panelGround
+                Color.panelBase
             } else {
                 PerchWindowBackdrop()
-                Color.shellTint
-
-                LinearGradient(
-                    stops: [
-                        .init(color: .white.opacity(0.11), location: 0),
-                        .init(color: .white.opacity(0.025), location: 0.28),
-                        .init(color: .clear, location: 0.54),
-                        .init(color: .white.opacity(0.045), location: 1)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-
-                LinearGradient(
-                    stops: [
-                        .init(color: .clear, location: 0.07),
-                        .init(color: .white.opacity(0.015), location: 0.18),
-                        .init(color: .white.opacity(0.065), location: 0.24),
-                        .init(color: .white.opacity(0.018), location: 0.31),
-                        .init(color: .clear, location: 0.43)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
             }
         }
         .allowsHitTesting(false)

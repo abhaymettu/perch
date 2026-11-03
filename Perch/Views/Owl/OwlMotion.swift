@@ -81,7 +81,7 @@ enum OwlMotion {
         }
     }
 
-    /// Shut fast, hold a beat, open slow. A symmetric blink looks mechanical , 
+    /// Shut fast, hold a beat, open slow. A symmetric blink looks mechanical -
     /// the asymmetry is most of what sells it as an eyelid.
     private static func lid(at elapsed: TimeInterval) -> CGFloat {
         if elapsed < closeDuration {

@@ -11,20 +11,14 @@ struct OwlHead: View {
     private var scale: CGFloat { size / OwlGeometry.baseSize }
     private var eyeOpenness: CGFloat { OwlGeometry.eyeOpenness(for: eyeState) }
 
-    /// Same glass family as `perchGlassCard`: a translucent fill lit from the
+    /// Glass: a translucent fill lit from the
     /// top-left, a rim brighter at the top than the bottom, and a soft cast
     /// shadow, so the owl reads as the same material as the panel it sits in.
-    /// White glass vanishes on the light material, so there the owl is smoked
-    /// glass instead: the same layers, drawn in ink.
-    @Environment(\.colorScheme) private var colorScheme
-    private var glass: Color { colorScheme == .dark ? .white : .ink }
-    private var light: Bool { colorScheme == .light }
-
-    private var faceTopColor: Color { glass.opacity(light ? 0.10 : 0.22) }
-    private var faceBottomColor: Color { glass.opacity(light ? 0.04 : 0.10) }
-    private var rimTopColor: Color { glass.opacity(light ? 0.34 : 0.55) }
-    private var rimBottomColor: Color { glass.opacity(light ? 0.16 : 0.22) }
-    private var eyeColor: Color { glass.opacity(light ? 0.72 : 0.92) }
+    private let faceTopColor = Color.white.opacity(0.22)
+    private let faceBottomColor = Color.white.opacity(0.10)
+    private let rimTopColor = Color.white.opacity(0.55)
+    private let rimBottomColor = Color.white.opacity(0.22)
+    private let eyeColor = Color.white.opacity(0.92)
 
     var body: some View {
         Canvas { context, canvasSize in
@@ -34,7 +28,7 @@ struct OwlHead: View {
             let lineWidth = max(1, scale)
 
             context.drawLayer { layer in
-                layer.addFilter(.shadow(color: .black.opacity(light ? 0.12 : 0.28), radius: 1.5 * scale, y: 0.75 * scale))
+                layer.addFilter(.shadow(color: .black.opacity(0.28), radius: 1.5 * scale, y: 0.75 * scale))
                 layer.fill(
                     head,
                     with: .linearGradient(

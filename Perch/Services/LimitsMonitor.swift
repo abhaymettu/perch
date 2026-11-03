@@ -1,8 +1,9 @@
 import Foundation
 import SwiftUI
 
-/// One rate-limit window: the session block, the weekly account total, or a
-/// weekly window scoped to a single model.
+/// One rate-limit window: the weekly account total, or a weekly window scoped
+/// to a single model. The 5-hour session block is gone from both accounts
+/// (since 2026-10-31), so it is neither parsed nor drawn.
 struct UsageLimit: Identifiable, Equatable {
     let kind: String
     let percent: Int
@@ -12,12 +13,9 @@ struct UsageLimit: Identifiable, Equatable {
 
     var id: String { modelName.map { "\(kind):\($0)" } ?? kind }
 
-    /// Every column names a window. Dropping to the bare model name gave the
-    /// strip "SESSION / WEEKLY / FABLE", two windows and a model, read as
-    /// three of the same kind of thing.
-    var shortTitle: String {
-        guard kind.hasPrefix("weekly") else { return kind.uppercased() }
-        return modelName.map { "WEEK · \($0.uppercased())" } ?? "WEEK · ALL"
+    /// "Week" for the account total, "Fable week" for a model's own window.
+    var title: String {
+        modelName.map { "\($0) week" } ?? "Week"
     }
 
     /// The meter fill. Brand colour while there is nothing to worry about.
@@ -38,12 +36,12 @@ struct UsageLimit: Identifiable, Equatable {
     /// Two units at most, "now", "14m", "2h 14m", "3d 5h", for the strip
     /// column and for the menu bar. A zero small unit is dropped, so a reset
     /// exactly two hours out reads "2h", not "2h 0m".
-    func countdown() -> String {
+    func countdown(from now: Date = Date()) -> String {
         guard let resetsAt else { return "" }
 
         // Rounded, because the interval is read a hair after it is computed and
         // truncation would turn 2h1m into 2h0m.
-        let minutes = Int(resetsAt.timeIntervalSinceNow.rounded()) / 60
+        let minutes = Int(resetsAt.timeIntervalSince(now).rounded()) / 60
         func pair(_ big: Int, _ bigUnit: String, _ small: Int, _ smallUnit: String) -> String {
             small == 0 ? "\(big)\(bigUnit)" : "\(big)\(bigUnit) \(small)\(smallUnit)"
         }
@@ -53,6 +51,49 @@ struct UsageLimit: Identifiable, Equatable {
         case ..<1440: return pair(minutes / 60, "h", minutes % 60, "m")
         default:      return pair(minutes / 1440, "d", minutes % 1440 / 60, "h")
         }
+    }
+
+    /// The window this number was observed in has rolled over, so the number
+    /// describes a window that no longer exists. `now` comes from the view's
+    /// clock: a card drawn a minute before a reset must flip when the reset
+    /// passes, not when the next poll happens to redraw it.
+    func hasReset(at now: Date = Date()) -> Bool {
+        resetsAt.map { $0 <= now } ?? false
+    }
+}
+
+/// One Claude account's own windows, as the perch-usage LaunchAgent last saw
+/// them. Accounts have separate limits on separate clocks, so nothing here is
+/// ever added up or averaged across accounts.
+struct AccountUsage: Identifiable, Equatable {
+    let id: String
+    /// His own name for the account, from accounts.json ("Main account").
+    let label: String?
+    let email: String?
+    /// The plan as perch-usage reports it ("Ultra"), shown as given.
+    let plan: String?
+    /// live | cached | unavailable | removed-needs-reauth
+    let status: String
+    let reason: String?
+    let windows: [UsageLimit]
+    let observedAt: Date?
+
+    /// Signed out on this Mac: the numbers are history, kept for reference.
+    var isSignedOut: Bool { status == "removed-needs-reauth" }
+
+    /// The id is for data only; a registry without a label falls back to the email.
+    var name: String { label ?? email ?? id }
+
+    func window(_ kind: String) -> UsageLimit? { windows.first { $0.kind == kind } }
+
+    /// Three missed polls.
+    static let staleAfter: TimeInterval = 15 * 60
+
+    /// Not read live within the last 15 minutes, so the numbers may have moved.
+    /// Age only, not status: one poll 429'd by the shared usage endpoint marks the
+    /// row cached while its numbers are still minutes old (acct2, 2026-10-27).
+    func isStale(at now: Date) -> Bool {
+        observedAt.map { now.timeIntervalSince($0) > Self.staleAfter } ?? true
     }
 }
 
@@ -72,6 +113,17 @@ final class LimitsMonitor {
     /// panel keeps showing them rather than blanking out.
     private(set) var isStale = false
 
+    /// Every account perch-usage polls, signed-in first, and which of them the
+    /// menu bar numbers belong to. Empty when its state file is missing.
+    private(set) var accounts: [AccountUsage] = []
+    private(set) var account: String?
+
+    /// The account the menu bar title follows, as chosen in the panel.
+    /// nil follows perch-usage's default account.
+    private(set) var menuBarAccount: String? = UserDefaults.standard.string(forKey: LimitsMonitor.menuBarAccountKey)
+    private static let menuBarAccountKey = "menuBarAccount"
+    @ObservationIgnored private var accountsStamp: Date?
+
     /// The endpoint drops persistently-429ing callers into a punitive bucket.
     /// 180s is the documented-safe floor; countdowns tick off `resetsAt`
     /// locally, so a slower poll costs nothing on screen.
@@ -82,6 +134,7 @@ final class LimitsMonitor {
     private var userAgent: String?
 
     init() {
+        reloadAccountsIfChanged()
         Task { await refresh() }
 
         timer = Timer.scheduledTimer(withTimeInterval: Self.interval, repeats: true) { [weak self] _ in
@@ -94,8 +147,13 @@ final class LimitsMonitor {
     #if DEBUG
     /// Seeded and inert, for the preview harness. Real data is `normal` almost
     /// all the time, so warning and critical would otherwise ship unrendered.
-    init(frozen limits: [UsageLimit], model: String? = "opus-5.5", error: String? = nil) {
+    init(frozen limits: [UsageLimit], model: String? = "opus-5", error: String? = nil, stale: Bool = false,
+         accounts: [AccountUsage] = [], account: String? = nil, menuBarAccount: String? = nil) {
+        self.accounts = accounts
+        self.account = account
+        self.menuBarAccount = menuBarAccount
         self.limits = limits
+        self.isStale = stale
         self.model = model
         self.error = error
     }
@@ -201,8 +259,9 @@ final class LimitsMonitor {
             guard let kind = entry["kind"] as? String,
                   let percent = entry["percent"] as? Int else { return nil }
 
-            // A scoped weekly window at 0% is a model he is not using.
-            guard kind != "weekly_scoped" || percent > 0 else { return nil }
+            // Weekly windows only: the 5-hour session block no longer applies.
+            // A scoped weekly window at 0% is a model nobody is using.
+            guard kind.hasPrefix("weekly"), kind != "weekly_scoped" || percent > 0 else { return nil }
 
             let model = (entry["scope"] as? [String: Any])?["model"] as? [String: Any]
 
@@ -256,61 +315,156 @@ final class LimitsMonitor {
 
     // MARK: - Menu bar
 
-    /// The session window always leads, since that is what you are spending
-    /// against right now. A hot weekly window still shows, but as the trailing
-    /// "· W nn%" rather than by taking over the bar.
-    var lead: UsageLimit? {
-        limits.first { $0.kind == "session" } ?? limits.max { $0.percent < $1.percent }
+    /// The window the menu bar carries: the weekly account total.
+    var headline: UsageLimit? {
+        limits.first { $0.kind == "weekly_all" }
     }
 
-    /// " 4% · W 44%", and the reset countdown too once the lead is hot enough
-    /// that knowing when it clears changes what you do next.
-    var menuBarTitle: String {
-        guard let lead else { return "" }
+    /// Awake while there is a live reading to watch; dozing before the first
+    /// fetch and while the chosen account is signed out.
+    var owlAwake: Bool {
+        isMultiAccount ? selectedAccount?.status == "live" : !limits.isEmpty
+    }
 
-        var title = " \(lead.kind == "session" ? "S" : "W") \(lead.percent)%"
-        if lead.severity != "normal" {
-            title += " \(lead.countdown())"
+    /// Red owl: any window critical, or the numbers shown are failing to refresh.
+    /// A signed-out account is a known state the user chose to watch, not a failure.
+    var owlAlert: Bool {
+        guard isMultiAccount else { return error != nil || limits.contains { $0.severity == "critical" } }
+        guard let picked = selectedAccount else { return true }
+        return (!picked.isSignedOut && picked.isStale(at: Date())) || picked.windows.contains { $0.severity == "critical" }
+    }
+
+    var menuBarTitle: String { menuBarTitle(at: Date()) }
+
+    /// With several accounts the title and that account's card read the same
+    /// state.json row, so they can never disagree. The title is numbers only,
+    /// whichever account is picked: which one it is shows in the panel, as the
+    /// filled ring. A chosen account that is missing, signed
+    /// out or stale says so: never another account's numbers in its place.
+    func menuBarTitle(at now: Date) -> String {
+        guard isMultiAccount else { return fetchedTitle }
+        guard let picked = selectedAccount else { return "Account not found" }
+        if picked.isSignedOut { return "Signed out" }
+        guard let week = picked.window("weekly_all") else { return "Usage unavailable" }
+
+        let part = week.hasReset(at: now) ? "Reset" : "\(week.percent)%"
+        return part + (picked.isStale(at: now) ? " · stale" : "")
+    }
+
+    /// "44%": the week's percent used, never remaining, beside the owl the way
+    /// the battery item shows its charge. With no successful fetch
+    /// yet it says so rather than guessing 0. "stale" is appended when the
+    /// last fetch failed.
+    private var fetchedTitle: String {
+        guard let headline else { return error == nil ? "Usage …" : "Usage unavailable" }
+        return "\(headline.percent)%" + (isStale ? " · stale" : "")
+    }
+
+    // MARK: - Accounts
+
+    /// Written every 300 s by the perch-usage LaunchAgent, which polls each
+    /// account with that account's own keychain item. Perch only reads it: no
+    /// extra token, no extra call against the endpoint's rate limit.
+    private static let accountsPath = ("~/.local/state/perch-usage/state.json" as NSString).expandingTildeInPath
+
+    static func readAccounts() -> (account: String?, accounts: [AccountUsage]) {
+        FileManager.default.contents(atPath: accountsPath).map(parseAccounts) ?? (nil, [])
+    }
+
+    /// Cards and the panel's picker take over once there is more than one account.
+    var isMultiAccount: Bool { accounts.count > 1 }
+
+    var menuBarAccountID: String? { menuBarAccount ?? account }
+
+    var selectedAccount: AccountUsage? { accounts.first { $0.id == menuBarAccountID } }
+
+    func chooseMenuBarAccount(_ id: String) {
+        menuBarAccount = id
+        UserDefaults.standard.set(id, forKey: Self.menuBarAccountKey)
+    }
+
+    /// Called every second: a stat, and a read only when the poller has written.
+    /// A file that will not parse is skipped without recording its stamp, so it
+    /// is read again next second rather than blanking the cards.
+    func reloadAccountsIfChanged() {
+        let stamp = (try? FileManager.default.attributesOfItem(atPath: Self.accountsPath))?[.modificationDate] as? Date
+        guard stamp != accountsStamp else { return }
+        let read = Self.readAccounts()
+        guard stamp == nil || !read.accounts.isEmpty else { return }
+        accountsStamp = stamp
+        (account, accounts) = read
+    }
+
+    /// Missing or malformed pieces drop out rather than failing the file: an
+    /// unavailable account has no windows at all, and that is a state to show.
+    static func parseAccounts(_ data: Data) -> (account: String?, accounts: [AccountUsage]) {
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let raw = root["accounts"] as? [String: [String: Any]] else { return (nil, []) }
+
+        func window(_ kind: String, _ value: Any?, model: String? = nil) -> UsageLimit? {
+            guard let value = value as? [String: Any],
+                  let percent = value["usage_percent"] as? Int else { return nil }
+            return UsageLimit(kind: kind, percent: min(max(percent, 0), 100),
+                              severity: value["severity"] as? String ?? "normal",
+                              resetsAt: date(value["resets_at"]), modelName: model)
         }
-        if let weekly = limits.first(where: { $0.kind == "weekly_all" && $0.id != lead.id }) {
-            title += " · W \(weekly.percent)%"
+
+        let accounts = raw.map { id, entry in
+            let fable = window("weekly_scoped", (entry["models"] as? [String: Any])?["fable"], model: "Fable")
+            return AccountUsage(
+                id: id,
+                label: entry["label"] as? String,
+                email: entry["email"] as? String,
+                plan: (entry["plan"] as? String).flatMap { $0.isEmpty ? nil : $0 },
+                status: entry["status"] as? String ?? "unavailable",
+                reason: entry["reason"] as? String,
+                windows: [window("weekly_all", entry["weekly"]), fable]
+                    .compactMap { $0 },
+                observedAt: date(entry["observed_at"])
+            )
         }
-        return title
+        // Signed-in accounts first, then by id: the one you can spend leads.
+        return (root["account"] as? String,
+                accounts.sorted { ($0.isSignedOut ? 1 : 0, $0.id) < ($1.isSignedOut ? 1 : 0, $1.id) })
+    }
+
+    /// The writer emits timestamps both with and without fractional seconds.
+    private static func date(_ value: Any?) -> Date? {
+        guard let string = value as? String else { return nil }
+        return ISO8601DateFormatter.usage.date(from: string) ?? ISO8601DateFormatter().date(from: string)
     }
 
     #if DEBUG
-    /// Pins lead selection and the scoped-window filter, the two rules that
+    /// Pins the headline window and the scoped-window filter, the two rules that
     /// decide what the menu bar says.
     static func selfCheck() {
         let payload = """
         {"limits":[
           {"kind":"session","percent":4,"severity":"normal","resets_at":"2026-08-31T09:00:00.000000+00:00","scope":null},
-          {"kind":"weekly_all","percent":44,"severity":"normal","resets_at":null,"scope":null},
+          {"kind":"weekly_all","percent":44,"severity":"normal","resets_at":"2026-08-31T09:00:00.000000+00:00","scope":null},
           {"kind":"weekly_scoped","percent":41,"severity":"normal","resets_at":null,"scope":{"model":{"display_name":"Fable"}}},
           {"kind":"weekly_scoped","percent":0,"severity":"normal","resets_at":null,"scope":{"model":{"display_name":"Opus"}}}
         ]}
         """
         let parsed = try! parse(Data(payload.utf8))
-        assert(parsed.count == 3, "0% scoped window was not dropped: \(parsed.count)")
+        assert(parsed.map(\.kind) == ["weekly_all", "weekly_scoped"], "session or 0% scoped window kept: \(parsed.map(\.kind))")
         assert(parsed[0].resetsAt != nil, "fractional-second resets_at failed to decode")
-        assert(parsed[2].shortTitle == "WEEK · FABLE", "got \(parsed[2].shortTitle)")
+        assert(parsed[1].title == "Fable week", "got \(parsed[1].title)")
 
-        let monitor = LimitsMonitor()
-        monitor.timer?.invalidate()
+        // Frozen, not live: a live monitor's init reads the Keychain and calls
+        // the endpoint before the timer can be stopped.
+        let monitor = LimitsMonitor(frozen: [])
 
         monitor.limits = parsed
-        assert(monitor.lead?.kind == "session", "session should lead below 75%")
-        assert(monitor.menuBarTitle == " S 4% · W 44%", "got '\(monitor.menuBarTitle)'")
+        assert(monitor.menuBarTitle == "44%", "got '\(monitor.menuBarTitle)'")
 
-        // The session keeps the lead even when another window is critical, and
-        // a lead that is no longer "normal" carries its countdown.
-        let inTwoHours = Date().addingTimeInterval(2 * 3600 + 60)
-        monitor.limits[1] = UsageLimit(kind: "weekly_all", percent: 91, severity: "critical", resetsAt: inTwoHours, modelName: nil)
-        assert(monitor.lead?.kind == "session", "session lost the lead to a hot weekly")
-        assert(monitor.menuBarTitle == " S 4% · W 91%", "got '\(monitor.menuBarTitle)'")
+        monitor.limits = [parsed[1]]
+        assert(monitor.menuBarTitle == "Usage …" || monitor.menuBarTitle == "Usage unavailable",
+               "no week window must not read as 0%: '\(monitor.menuBarTitle)'")
 
-        monitor.limits[0] = UsageLimit(kind: "session", percent: 96, severity: "critical", resetsAt: inTwoHours, modelName: nil)
-        assert(monitor.menuBarTitle == " S 96% 2h 1m · W 91%", "got '\(monitor.menuBarTitle)'")
+        monitor.limits = []
+        assert(monitor.menuBarTitle == "Usage …" || monitor.menuBarTitle == "Usage unavailable",
+               "empty limits must not read as 0%: '\(monitor.menuBarTitle)'")
 
         // Both units, and the zero one dropped.
         let cases: [(TimeInterval, String)] = [
@@ -318,10 +472,69 @@ final class LimitsMonitor {
             (277_200, "3d 5h"), (259_200, "3d"),
         ]
         for (seconds, expected) in cases {
-            let limit = UsageLimit(kind: "session", percent: 1, severity: "normal",
+            let limit = UsageLimit(kind: "weekly_all", percent: 1, severity: "normal",
                                    resetsAt: Date().addingTimeInterval(seconds), modelName: nil)
             assert(limit.countdown() == expected, "\(seconds)s gave '\(limit.countdown())', want '\(expected)'")
         }
+
+        // Injected clock: a window that reset a minute ago is passed, not "1m".
+        let reset = ISO8601DateFormatter().date(from: "2026-10-09T15:39:00Z")!
+        let expiring = UsageLimit(kind: "weekly_all", percent: 4, severity: "normal", resetsAt: reset, modelName: nil)
+        assert(!expiring.hasReset(at: reset.addingTimeInterval(-60)) && expiring.countdown(from: reset.addingTimeInterval(-60)) == "1m")
+        assert(expiring.hasReset(at: reset), "a reset at exactly now is passed")
+        assert(expiring.hasReset(at: reset.addingTimeInterval(60)))
+
+        // Accounts: signed-in first, both timestamp shapes, Fable kept, the
+        // feed's null session dropped, plan as given, garbage empty.
+        let state = """
+        {"account":"acct2","accounts":{
+          "acct1":{"status":"removed-needs-reauth","plan":"Ultra","session":null,
+                   "weekly":{"usage_percent":99,"resets_at":"2026-10-09T15:39:00+00:00"},"observed_at":"2026-10-09T15:05:48+00:00"},
+          "acct2":{"status":"live","plan":"Ultra","session":{"usage_percent":8,"resets_at":"2026-10-09T19:59:00+00:00"},
+                   "weekly":{"usage_percent":2,"resets_at":"2026-10-12T02:00:00+00:00"},"models":{"fable":{"usage_percent":1,"resets_at":null}},
+                   "observed_at":"2026-10-09T15:40:51.3+00:00"}}}
+        """
+        let (owner, accounts) = parseAccounts(Data(state.utf8))
+        assert(owner == "acct2" && accounts.map(\.id) == ["acct2", "acct1"], "got \(accounts.map(\.id))")
+        assert(accounts.allSatisfy { $0.observedAt != nil }, "observed_at failed to decode")
+        assert(accounts[0].windows.map(\.title) == ["Week", "Fable week"], "got \(accounts[0].windows.map(\.title))")
+        assert(accounts.allSatisfy { $0.plan == "Ultra" })
+        assert(accounts[1].isSignedOut && accounts[1].windows.count == 1)
+        assert(accounts[1].windows[0].hasReset(at: reset.addingTimeInterval(60)))
+        assert(parseAccounts(Data("garbage".utf8)).accounts.isEmpty)
+
+        // Title and card from one row; the chosen account is never swapped for another.
+        let at = ISO8601DateFormatter().date(from: "2026-10-09T15:42:00Z")!
+        let labelled = parseAccounts(Data(state.replacingOccurrences(of: "\"acct1\":{", with: "\"acct1\":{\"label\":\"Main account\",")
+            .replacingOccurrences(of: "\"acct2\":{", with: "\"acct2\":{\"label\":\"Second account\",").utf8))
+        let rows = LimitsMonitor(frozen: parsed, accounts: labelled.accounts, account: "acct2")
+        assert(rows.menuBarTitle(at: at) == "2%", "got '\(rows.menuBarTitle(at: at))'")
+        // The fixture's 15:40Z reading is long past 15 minutes on the real clock.
+        assert(rows.selectedAccount?.name == "Second account" && rows.owlAlert, "a stale live row alarms")
+        assert(rows.menuBarTitle(at: at.addingTimeInterval(16 * 60)) == "2% · stale")
+        let main = LimitsMonitor(frozen: [], accounts: labelled.accounts, account: "acct2", menuBarAccount: "acct1")
+        assert(main.menuBarTitle(at: at) == "Signed out", "got '\(main.menuBarTitle(at: at))'")
+        assert(!main.owlAwake && !main.owlAlert, "a signed-out choice dozes, it does not alarm")
+        let gone = LimitsMonitor(frozen: parsed, accounts: labelled.accounts, account: "acct2", menuBarAccount: "acct9")
+        assert(gone.menuBarTitle(at: at) == "Account not found" && gone.owlAlert)
+
+        // Binding: a picked live account shows its own numbers, never the default's.
+        let both = parseAccounts(Data(state.replacingOccurrences(of: "\"removed-needs-reauth\"", with: "\"live\"")
+            .replacingOccurrences(of: "\"observed_at\":\"2026-10-09T15:05:48+00:00\"", with: "\"observed_at\":\"2026-10-09T15:40:51+00:00\"").utf8))
+        let early = reset.addingTimeInterval(-120)
+        let picked1 = LimitsMonitor(frozen: parsed, accounts: both.accounts, account: "acct2", menuBarAccount: "acct1")
+        let picked2 = LimitsMonitor(frozen: parsed, accounts: both.accounts, account: "acct2", menuBarAccount: "acct2")
+        assert(picked1.menuBarTitle(at: early) == "99%", "got '\(picked1.menuBarTitle(at: early))'")
+        assert(picked1.menuBarTitle(at: reset.addingTimeInterval(60)) == "Reset")
+        assert(picked2.menuBarTitle(at: early) == "2%", "got '\(picked2.menuBarTitle(at: early))'")
+
+        // One missed poll is not stale: a cached row 5 minutes old reads fresh, 16 minutes old does not.
+        let cached = parseAccounts(Data(state.replacingOccurrences(of: "\"status\":\"live\"", with: "\"status\":\"cached\"").utf8))
+        let missed = LimitsMonitor(frozen: parsed, accounts: cached.accounts, account: "acct2", menuBarAccount: "acct2")
+        let observed = ISO8601DateFormatter.usage.date(from: "2026-10-09T15:40:51.3+00:00")!
+        assert(missed.selectedAccount?.status == "cached")
+        assert(missed.menuBarTitle(at: observed.addingTimeInterval(5 * 60)) == "2%")
+        assert(missed.menuBarTitle(at: observed.addingTimeInterval(16 * 60)) == "2% · stale")
     }
     #endif
 }

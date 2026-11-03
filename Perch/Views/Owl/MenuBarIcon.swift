@@ -4,7 +4,7 @@ enum MenuBarIcon {
     static let iconSize: CGFloat = 22
     /// The owl is drawn at `iconSize`; the canvas is wider so its moves have
     /// room. The bob sways the 21pt face 2.6pt off centre, and a 22pt square
-    /// cut a cheek off at each end of it (his 2026-10-09 11:43 report). 30
+    /// cut a cheek off at each end of it. 30
     /// keeps the resting owl on a whole point, so it draws as it always did.
     static let canvasSize = CGSize(width: 30, height: iconSize)
 
@@ -122,7 +122,7 @@ private struct MenuBarOwl: View {
             // Its radius is fixed by where the eyes have to land at rest: at
             // azimuth ±α they must sit at ±eyeSpacing, so R = eyeSpacing / sin α.
             // Turning the head is then one rotation of that cylinder, and each
-            // feature's x position and width fall straight out of its azimuth , 
+            // feature's x position and width fall straight out of its azimuth -
             // including the far side going behind the head and disappearing,
             // which is what a sideways slide can never do.
             let alpha = OwlGeometry.eyeAzimuth
@@ -148,7 +148,7 @@ private struct MenuBarOwl: View {
                 let facing = cos(azimuth)
                 guard facing > OwlGeometry.cullCosine else { continue }
 
-                // The cylinder is vertical, so a turn foreshortens width only , 
+                // The cylinder is vertical, so a turn foreshortens width only -
                 // the eye keeps its full height all the way round.
                 let width = eyeWidth * facing / cos(alpha)
                 let eyeRect = CGRect(
@@ -170,10 +170,7 @@ private struct MenuBarOwl: View {
             // highlight and grounding shadow don't invert with it: a
             // highlight is always lighter than the glass under it and a
             // shadow always darker, so both stay fixed regardless of bar.
-            // Alert is the one state that means something, so it is not glass:
-            // a solid amber chip, fixed rather than appearance-resolved, since
-            // ImageRenderer has no menu bar appearance to resolve against.
-            let tint: Color = alert ? Color(hex: 0xF5A524) : (isDarkMenuBar ? .white : .black)
+            let tint: Color = alert ? .glassWarning : (isDarkMenuBar ? .white : .black)
 
             // Real glass, not a flat silhouette: colour plus real alpha here
             // is a graduated amount of the live menu bar, already blurred
@@ -185,13 +182,13 @@ private struct MenuBarOwl: View {
             context.fill(
                 head,
                 with: .linearGradient(
-                    Gradient(colors: alert ? [tint, tint.opacity(0.88)] : [tint.opacity(0.26), tint.opacity(0.14)]),
+                    Gradient(colors: [tint.opacity(0.26), tint.opacity(0.14)]),
                     startPoint: CGPoint(x: faceRect.midX, y: faceRect.minY),
                     endPoint: CGPoint(x: faceRect.midX, y: faceRect.maxY)
                 )
             )
 
-            // Eyes and beak are no longer a cutout hole into raw background , 
+            // Eyes and beak are no longer a cutout hole into raw background -
             // at this body alpha a hole is just as invisible as the glass
             // around it. Real glyphs on real glass chips (Wi-Fi, Bluetooth)
             // stay solid while only the chip is translucent; drawn opposite
@@ -202,7 +199,7 @@ private struct MenuBarOwl: View {
                     layer.clip(to: head)
                     // Frosted glass white: translucent so the bar bleeds
                     // through the eyes and beak like it does the body.
-                    let eyeTint: Color = alert ? .black.opacity(0.72) : .white.opacity(0.55)
+                    let eyeTint: Color = .white.opacity(0.55)
                     layer.fill(punch, with: .color(eyeTint))
                 }
             }
