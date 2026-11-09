@@ -27,7 +27,7 @@ plan, how much of the week is used and when it resets.
 
 ## Install
 
-Download `Perch-2.0.dmg` from [Releases](https://github.com/abhaymettu/perch/releases/latest) and
+Download `Perch-2.1.dmg` from [Releases](https://github.com/abhaymettu/perch/releases/latest) and
 drag it to Applications. Perch is not notarized yet (see [Limits](#limits)), so a downloaded copy
 needs one command before macOS will open it:
 
@@ -36,10 +36,6 @@ xattr -dr com.apple.quarantine /Applications/Perch.app
 ```
 
 Requires macOS 14 (Sonoma) or later. The build is universal, Apple silicon and Intel.
-
-The 2.0 download has the earlier owl. The owl described below, and the numbers under
-[What it costs](#what-it-costs), are on `main` and ship with the next release. To run it now,
-[build from source](#build-from-source).
 
 ## What it shows
 
@@ -196,7 +192,7 @@ xcodebuild -scheme Perch -configuration Release -derivedDataPath build build
 open build/Build/Products/Release/Perch.app
 ```
 
-Or open `Perch.xcodeproj` in Xcode 16 or later and run. `Scripts/release.sh 2.0` builds the zip
+Or open `Perch.xcodeproj` in Xcode 16 or later and run. `Scripts/release.sh 2.1` builds the zip
 and DMG for a release. Design work happens in a preview harness rather than the live popover:
 `./shot.sh out.png main` renders every state side by side to a PNG (add `PERCH_APPEARANCE=light`
 for light), and `PERCH_UI_PREVIEW=hero` renders the staged pictures in this README. See

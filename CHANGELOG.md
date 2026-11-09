@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.1 (2026-11-09)
 
 - The owl moves on springs now. Every behaviour can interrupt any other and carry on from where the
   head was. Idle behaviours draw at 60 frames a second and reactions at the display's own rate.
