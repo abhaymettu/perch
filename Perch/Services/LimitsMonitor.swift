@@ -334,6 +334,14 @@ final class LimitsMonitor {
         return (!picked.isSignedOut && picked.isStale(at: Date())) || picked.windows.contains { $0.severity == "critical" }
     }
 
+    /// nil while there is no current week to show: no reading yet, a
+    /// signed-out account, or a window that has already rolled over.
+    func menuBarReading(at now: Date = Date()) -> MenuBarReading? {
+        let week = isMultiAccount ? selectedAccount.flatMap { $0.isSignedOut ? nil : $0.window("weekly_all") } : headline
+        guard let week, !week.hasReset(at: now) else { return nil }
+        return MenuBarReading(account: isMultiAccount ? menuBarAccountID : nil, percent: week.percent, severity: week.severity)
+    }
+
     var menuBarTitle: String { menuBarTitle(at: Date()) }
 
     /// With several accounts the title and that account's card read the same
@@ -379,8 +387,10 @@ final class LimitsMonitor {
     var selectedAccount: AccountUsage? { accounts.first { $0.id == menuBarAccountID } }
 
     func chooseMenuBarAccount(_ id: String) {
+        guard id != menuBarAccountID else { return }
         menuBarAccount = id
         UserDefaults.standard.set(id, forKey: Self.menuBarAccountKey)
+        NotificationCenter.default.post(name: .perchMenuBarAccountChanged, object: nil)
     }
 
     /// Called every second: a stat, and a read only when the poller has written.
@@ -527,6 +537,19 @@ final class LimitsMonitor {
         assert(picked1.menuBarTitle(at: early) == "99%", "got '\(picked1.menuBarTitle(at: early))'")
         assert(picked1.menuBarTitle(at: reset.addingTimeInterval(60)) == "Reset")
         assert(picked2.menuBarTitle(at: early) == "2%", "got '\(picked2.menuBarTitle(at: early))'")
+
+        // The owl's cue: the picked account's own week, and nothing once it is signed out.
+        assert(picked1.menuBarReading(at: reset.addingTimeInterval(60)) == nil, "a week past its reset is not a reading")
+        assert(main.menuBarReading(at: at) == nil)
+        assert(rows.menuBarReading(at: at) == MenuBarReading(account: "acct2", percent: 2, severity: "normal"))
+        let (calm, warm) = (MenuBarReading(account: "a", percent: 40, severity: "normal"),
+                            MenuBarReading(account: "a", percent: 41, severity: "warning"))
+        assert(OwlRepertoire.reaction(from: calm, to: calm) == nil)
+        assert(OwlRepertoire.reaction(from: calm, to: warm)?.name == "double take")
+        assert(OwlRepertoire.reaction(from: warm, to: MenuBarReading(account: "a", percent: 42, severity: "warning"))?.name == "notice the number")
+        assert(OwlRepertoire.reaction(from: warm, to: MenuBarReading(account: "a", percent: 0, severity: "normal"))?.name == "cheer")
+        assert(OwlRepertoire.reaction(from: warm, to: MenuBarReading(account: "b", percent: 0, severity: "normal")) == nil,
+               "another account's number is not this one's week rolling over")
 
         // One missed poll is not stale: a cached row 5 minutes old reads fresh, 16 minutes old does not.
         let cached = parseAccounts(Data(state.replacingOccurrences(of: "\"status\":\"live\"", with: "\"status\":\"cached\"").utf8))

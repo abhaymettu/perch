@@ -21,8 +21,6 @@ enum OwlGeometry {
     /// A feature is dropped once it is this close to edge-on. Below it the
     /// foreshortened width is under a rendered pixel and it flickers.
     static let cullCosine: CGFloat = 0.07
-    static let eyeHeightRatio: CGFloat = 5.8
-    static let minEyeHeightRatio: CGFloat = 0.7
     /// The eyes ride high in the head, an owl's sit up under the brow, and a
     /// low-set eye is part of what made the first pass read as a cat.
     static let eyeCenterOffsetRatio: CGFloat = 0.8
@@ -30,15 +28,6 @@ enum OwlGeometry {
     static let beakWidthRatio: CGFloat = 3.8
     static let beakTopRatio: CGFloat = 0.6
     static let beakDepthRatio: CGFloat = 5.4
-
-    static func eyeOpenness(for state: OwlHead.EyeState) -> CGFloat {
-        switch state {
-        case .open: 1.0
-        case .halfClosed: 0.35
-        case .closed: 0.0
-        case .wide: 1.25
-        }
-    }
 
     /// The head. A wide squircle, not an animal outline: every attempt at a
     /// drawn silhouette (tufts, brow points, a tapered chin) read as a cat or a
@@ -52,33 +41,63 @@ enum OwlGeometry {
     }
 
     /// A circle with the top-inner corner sliced off by the brow. Plain circles
-    /// read owlish but placid; the cut is what makes it glare. The slice is
-    /// subtracted from the eye rather than drawn over it so that all three
-    /// renderers, panel, menu bar, app icon, get the same shape from one path.
-    static func eyePath(in rect: CGRect, innerIsRight: Bool) -> Path {
-        let outerY = rect.minY + 0.02 * rect.height   // barely clipped at the temple
-        let innerY = rect.minY + 0.52 * rect.height   // deep cut beside the beak
-        let (leftY, rightY) = innerIsRight ? (outerY, innerY) : (innerY, outerY)
+    /// read owlish but placid; the cut is what makes it glare.
+    ///
+    /// The brow is also the eyelid. As `lid` falls from 1 the slice comes down
+    /// and bows until only a sliver of the eye's lower rim is left, so a blink
+    /// closes the way a lid does rather than squeezing the eye flat. Above 1
+    /// the brow lifts clear and the eye is round with surprise. `cheek` is the
+    /// lower lid: at 1 it leaves only the upper rim, an eye arched in a smile.
+    static func eyePath(in rect: CGRect, innerIsRight: Bool, lid: CGFloat = 1, cheek: CGFloat = 0) -> Path {
+        var eye = Path(ellipseIn: rect)
+        let (w, h) = (rect.width, rect.height)
 
-        let top = rect.minY - rect.height
+        let outer: CGFloat, inner: CGFloat, sag: CGFloat
+        if lid >= 1 {
+            let raised = min((lid - 1) / (OwlPose.wideLid - 1), 1)
+            (outer, inner, sag) = (0.02 - 0.5 * raised, 0.52 - 0.6 * raised, 0)   // clear of the eye when wide
+        } else {
+            let open = max(lid, 0)
+            (outer, inner, sag) = (0.62 - 0.6 * open, 0.62 - 0.1 * open, 0.27 * (1 - open))
+        }
+        if inner > 0 {
+            let (leftY, rightY) = innerIsRight ? (outer, inner) : (inner, outer)
+            var brow = Path()
+            brow.move(to: CGPoint(x: rect.minX, y: rect.minY + leftY * h))
+            // A quadratic passes its midpoint a quarter of the way to twice
+            // the control's offset, hence the doubled sag.
+            brow.addQuadCurve(
+                to: CGPoint(x: rect.maxX, y: rect.minY + rightY * h),
+                control: CGPoint(x: rect.minX + w / 2, y: rect.minY + ((leftY + rightY) / 2 + 2 * sag) * h)
+            )
+            brow.addLine(to: CGPoint(x: rect.maxX, y: rect.minY - h))
+            brow.addLine(to: CGPoint(x: rect.minX, y: rect.minY - h))
+            brow.closeSubpath()
+            eye = eye.subtracting(brow)
+        }
 
-        var cut = Path()
-        cut.move(to: CGPoint(x: rect.minX, y: leftY))
-        cut.addLine(to: CGPoint(x: rect.maxX, y: rightY))
-        cut.addLine(to: CGPoint(x: rect.maxX, y: top))
-        cut.addLine(to: CGPoint(x: rect.minX, y: top))
-        cut.closeSubpath()
-
-        return Path(roundedRect: rect, cornerRadius: rect.width / 2).subtracting(cut)
+        if cheek > 0 {
+            let push = min(cheek, 1)
+            let ends = rect.minY + (1.3 - 0.8 * push) * h
+            var lower = Path()
+            lower.move(to: CGPoint(x: rect.minX, y: ends))
+            lower.addQuadCurve(to: CGPoint(x: rect.maxX, y: ends),
+                               control: CGPoint(x: rect.minX + w / 2, y: ends - 0.72 * push * h))
+            lower.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY + h))
+            lower.addLine(to: CGPoint(x: rect.minX, y: rect.maxY + h))
+            lower.closeSubpath()
+            eye = eye.subtracting(lower)
+        }
+        return eye
     }
 
     /// A small diamond between the eyes. `eyeCenterY` is the eyes' shared centre
     /// line, the beak hangs off that rather than off the head, so it stays under
     /// the eyes as they glance around.
-    static func beakPath(midX: CGFloat, eyeCenterY: CGFloat, scale: CGFloat) -> Path {
+    static func beakPath(midX: CGFloat, eyeCenterY: CGFloat, scale: CGFloat, depthScale: CGFloat = 1) -> Path {
         let halfWidth = beakWidthRatio * scale / 2
         let top = eyeCenterY + beakTopRatio * scale
-        let depth = beakDepthRatio * scale
+        let depth = beakDepthRatio * scale * depthScale
 
         var path = Path()
         path.move(to: CGPoint(x: midX, y: top))

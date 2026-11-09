@@ -87,12 +87,11 @@ enum PreviewHarness {
     private struct BarItem: View {
         let monitor: LimitsMonitor
         let dark: Bool
-        var pose: OwlPose = .resting
 
         var body: some View {
             HStack(spacing: 3) {
-                Image(nsImage: MenuBarIcon.render(pose: monitor.owlAwake ? pose : .dozing,
-                                                  alert: monitor.owlAlert, isDarkMenuBar: dark))
+                Image(nsImage: MenuBarIcon.render(pose: OwlStance(awake: monitor.owlAwake, alert: monitor.owlAlert).pose,
+                                                  isDarkMenuBar: dark))
                 Text(monitor.menuBarTitle)
                     .font(.system(size: 11, weight: .medium).monospacedDigit())
                     .foregroundStyle(dark ? Color.white : Color.black)
@@ -104,29 +103,6 @@ enum PreviewHarness {
         }
     }
 
-    /// Every frame the animator draws (60 a second) of every move, on a dark
-    /// bar. Each frame keeps its own canvas swatch, so an owl touching a
-    /// swatch's edge is an owl the menu bar would clip.
-    private struct Filmstrip: View {
-        var body: some View {
-            VStack(alignment: .leading, spacing: 4) {
-                ForEach(OwlMotion.everyMove, id: \.name) { name, move, alert in
-                    HStack(spacing: 1) {
-                        Text(name.uppercased())
-                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(Color.white.opacity(0.4))
-                            .frame(width: 58, alignment: .leading)
-                        ForEach(0...Int(move.duration * 60), id: \.self) { frame in
-                            let t = min(Double(frame) / 60, move.duration)
-                            Image(nsImage: MenuBarIcon.render(pose: move.pose(t), alert: alert, isDarkMenuBar: true))
-                                .background(Color(hex: 0x1B1B1F))
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     /// Lays the scenarios out in one row, and with `PERCH_UI_SHOT` set writes
     /// that window to a PNG and quits.
     @MainActor static func present() {
@@ -134,10 +110,9 @@ enum PreviewHarness {
         let gap: CGFloat = 26
         let scenarios = PreviewScenario.all
         let width = (UsagePopup.panelWidth + gap) * CGFloat(scenarios.count) + gap
-        let height: CGFloat = ProcessInfo.processInfo.environment["PERCH_UI_PREVIEW"] == "owl" ? 800 : 420
+        let height: CGFloat = 420
 
-        let content = VStack(alignment: .leading, spacing: 20) {
-            HStack(alignment: .top, spacing: gap) {
+        let content = HStack(alignment: .top, spacing: gap) {
                 ForEach(scenarios, id: \.name) { scenario in
                     let monitor = scenario.monitor
                     VStack(spacing: 7) {
@@ -152,8 +127,6 @@ enum PreviewHarness {
                     }
                     .frame(width: UsagePopup.panelWidth, alignment: .top)
                 }
-            }
-            if ProcessInfo.processInfo.environment["PERCH_UI_PREVIEW"] == "owl" { Filmstrip() }
         }
         .padding(gap)
         .frame(width: width, height: height, alignment: .topLeading)
@@ -210,7 +183,7 @@ enum PreviewHarness {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 16) {
                     HStack(spacing: 3) {
-                        Image(nsImage: MenuBarIcon.render(pose: .resting, alert: monitor.owlAlert, isDarkMenuBar: dark))
+                        Image(nsImage: MenuBarIcon.render(pose: OwlStance(awake: true, alert: monitor.owlAlert).pose, isDarkMenuBar: dark))
                         Text(monitor.menuBarTitle)
                             .font(.system(size: 11, weight: .medium).monospacedDigit())
                     }

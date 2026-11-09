@@ -9,6 +9,8 @@ extension Notification.Name {
     /// A row wants the panel gone before it does something that steals focus
     /// (activating another app), so the panel doesn't sit open behind it.
     static let perchPanelShouldClose = Notification.Name("perch.panel.shouldClose")
+    /// Another account was picked for the menu bar.
+    static let perchMenuBarAccountChanged = Notification.Name("perch.menuBarAccount.changed")
 }
 
 /// Without `.titled`, AppKit's default `canBecomeKey` is false, so
@@ -26,7 +28,11 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     private var panel: NSPanel!
     private let usage = LimitsMonitor()
     private var eventMonitor: Any?
-    private var iconAnimator: MenuBarIconAnimator!
+    private var owl: OwlDirector!
+    /// The number the owl last saw, so it can tell when it moves.
+    private var lastReading: MenuBarReading?
+    /// The title waits while the owl turns its back on an account switch.
+    private var titleIsHeld = false
     private weak var panelContentView: NSView?
     private var panelTopLeft: NSPoint = .zero
     // `NSHostingController.sizingOptions = []` (below) means AppKit no longer
@@ -59,7 +65,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
             button.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
         }
 
-        iconAnimator = MenuBarIconAnimator(button: statusItem.button)
+        owl = OwlDirector(button: statusItem.button)
 
         // No `sizingOptions`: `.preferredContentSize` stack-overflows on launch
         // (AppKit's resize re-enters the layout that asked for it) and
@@ -118,10 +124,26 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
             }
         }
 
+        // Picking an account sends the owl all the way round; its number lands
+        // in the menu bar while the back of its head is showing.
+        NotificationCenter.default.addObserver(
+            forName: .perchMenuBarAccountChanged, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.titleIsHeld = true
+                self.owl.switchAccount { [weak self] in
+                    self?.titleIsHeld = false
+                    self?.updateQuotaTitle()
+                }
+            }
+        }
+
         MainActor.assumeIsolated { startTitleUpdates() }
     }
 
     @objc private func togglePanel() {
+        MainActor.assumeIsolated { owl.pressed() }
         if panel.isVisible {
             closePanel()
         } else {
@@ -158,6 +180,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         }
 
         growFromMenuBar()
+        MainActor.assumeIsolated { owl.setAttending(true) }
 
         eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             self?.closePanel()
@@ -203,6 +226,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     }
 
     private func removeMonitors() {
+        MainActor.assumeIsolated { owl.setAttending(false) }
         if let monitor = eventMonitor {
             NSEvent.removeMonitor(monitor)
             eventMonitor = nil
@@ -237,15 +261,23 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     @MainActor
     private func updateQuotaTitle() {
         // Empty string, not nil: AppKit keeps the old title otherwise.
+        guard !titleIsHeld else { return }
         let title = usage.menuBarTitle
         if statusItem.button?.title != title {
             statusItem.button?.title = title
         }
+
+        // The owl looks at the number when it moves. A reading that vanishes
+        // (stale, signed out) keeps the last one, so the week rolling over is
+        // still seen as a smaller number arriving.
+        guard let reading = usage.menuBarReading() else { return }
+        if let lastReading { owl.readingChanged(from: lastReading, to: reading) }
+        lastReading = reading
     }
 
     /// The title only changes when a fetch lands or state.json is rewritten,
     /// so this is a stat and a cheap string compare once a second. The owl is awake while usage is
-    /// readable and red when a window is critical or the fetch is failing;
+    /// readable and amber when a window is critical or the fetch is failing;
     /// both setters ignore an unchanged value.
     @MainActor
     private func startTitleUpdates() {
@@ -255,8 +287,8 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
                 guard let self else { return }
                 // Title and cards both follow state.json; it is re-read the second the poller writes it.
                 self.usage.reloadAccountsIfChanged()
-                self.iconAnimator.setAwake(self.usage.owlAwake)
-                self.iconAnimator.setAlert(self.usage.owlAlert)
+                self.owl.setAwake(self.usage.owlAwake)
+                self.owl.setAlert(self.usage.owlAlert)
                 self.updateQuotaTitle()
                 self.syncPanelHeight()
             }
