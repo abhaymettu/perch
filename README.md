@@ -37,6 +37,10 @@ xattr -dr com.apple.quarantine /Applications/Perch.app
 
 Requires macOS 14 (Sonoma) or later. The build is universal, Apple silicon and Intel.
 
+The 2.0 download has the earlier owl. The owl described below, and the numbers under
+[What it costs](#what-it-costs), are on `main` and ship with the next release. To run it now,
+[build from source](#build-from-source).
+
 ## What it shows
 
 - **One section per account.** The name, its plan beside it in small grey type ("Ultra"), the
