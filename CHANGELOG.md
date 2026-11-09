@@ -3,12 +3,15 @@
 ## Unreleased
 
 - The owl moves on springs now. Every behaviour can interrupt any other and carry on from where the
-  head was, and the menu bar's refresh rate sets the frame rate.
+  head was. Idle behaviours draw at 60 frames a second and reactions at the display's own rate.
 - New things it does: tilts its head, shakes its feathers, wakes up and dozes off, looks at the
   number when it changes, does a double take at a warning, breathes out when a problem clears,
   cheers a new week, dips when clicked, looks down at the open panel, follows the pointer, and
   turns all the way round when you pick another account.
 - A blink closes like an eyelid instead of squeezing the eye flat.
+- The amber owl is solid again, with dark eyes and beak. As a thin tint it turned grey over a
+  coloured wallpaper and hid its own eyes on a light menu bar.
+- A click dips the owl on the same frame, before the panel opens.
 - Drawn with Core Graphics instead of a SwiftUI image renderer.
 - Reduce Motion stops all movement, the startle included.
 

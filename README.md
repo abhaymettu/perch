@@ -107,7 +107,7 @@ blink, sometimes a glance to one side, a tilt of the head, a slow sideways sway 
 level, a shake of its feathers, and now and then a full turn.
 
 <p align="center">
-  <img src=".github/owl.png" width="640" alt="Filmstrips of the owl tilting its head, startling, and cheering a new week" />
+  <img src=".github/owl.png" width="640" alt="Filmstrips of the owl tilting its head, startling into amber, and cheering a new week" />
 </p>
 
 The rest of what it does means something:
@@ -121,13 +121,16 @@ The rest of what it does means something:
 | Startles and turns amber | A window turned critical, or the reading went stale |
 | Shuts its eyes and breathes out | The problem cleared |
 | Hops twice, eyes arched | The week rolled over |
-| Dips, then looks down | You clicked it, and the panel is open underneath |
+| Dips with the click, then looks down | You clicked it, and the panel is open underneath |
 | Turns all the way round | You picked another account. Its number lands while the owl's back is turned |
 | Follows your pointer | The pointer is over it |
 
-Under Reduce Motion nothing moves: the owl goes straight to each state and only the amber tint
-fades in. Idle motion also stops whenever nobody can see the menu bar. `Scripts/owl-clips.sh out`
-films every behaviour from the same code the menu bar runs.
+The amber owl is solid, with dark eyes and beak, so it reads as amber on any wallpaper and still
+differs from the resting owl if you cannot tell the two colours apart.
+
+Under Reduce Motion nothing moves: the owl goes straight to each state and only the amber fades
+in. Idle motion also stops whenever nobody can see the menu bar. `Scripts/owl-clips.sh out` films
+every behaviour from the same code the menu bar runs.
 
 ## The iOS widget
 
@@ -159,8 +162,13 @@ Measured on an M4 Pro running macOS 26 with about 1,170 processes, two minutes e
 
 | | CPU, Perch plus what it spawns | CPU, Perch alone | Memory | Wakeups |
 |---|---|---|---|---|
-| Owl still | 0.18% | 0.05% | 23 MB | 1.8 /s |
-| Owl idling | 2.1% | 1.9% | 125 MB | 32 /s |
+| Owl still | 0.20% | 0.07% | 21 MB | 1.4 /s |
+| Owl idling | 2.5% | 2.2% | 22 MB | 24 /s |
+
+The idling owl draws at 60 frames a second for the second or so each behaviour lasts, about 1 ms a
+frame, and nothing in between. CPU moves with whatever else the Mac is doing: the same build read
+1.6% and 2.2% an hour apart. Run back to back against the owl before it, this one used the same CPU
+or less each time, 4 MB less memory and a third fewer wakeups.
 
 CPU is percent of one core over Perch's whole life, launch included, counting the `security`
 and `claude --version` children it spawns. Memory is the physical footprint (what Activity Monitor shows) read once at

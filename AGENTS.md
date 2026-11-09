@@ -34,7 +34,8 @@ Scripts/bench.py 120                                  # CPU, memory, wakeups of 
 ```
 
 `PERCH_OWL_DEMO=1` plays the whole owl catalogue in the real menu bar, and `PERCH_OWL_TRACE=<file>`
-logs frame gaps and draw times per action.
+logs, per stretch of motion, which display link drove it, the frame rate, missing frames, how late
+the main thread got to a frame, and draw times.
 
 Debug builds run `selfCheck()` assertions at launch (`LimitsMonitor`, `MenuBarIcon`, `Shell`). A
 failed assertion crashes the harness before it writes a PNG, which is the test failure. Run a
