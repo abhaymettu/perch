@@ -166,6 +166,7 @@ final class OwlDirector: NSObject {
         if action.name != OwlRepertoire.switchAccount.name { settleSwap() }
         performer.play(action)
         run()
+        pace()
     }
 
     /// Brings the performer's clock to now before anything new is asked of
@@ -188,10 +189,18 @@ final class OwlDirector: NSObject {
             ? button?.displayLink(target: self, selector: #selector(step))
             : (NSScreen.main ?? NSScreen.screens.first)?.displayLink(target: self, selector: #selector(step))
         guard let link else { return finish() }
-        link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 120)
         link.add(to: .main, forMode: .common)
         self.link = link
         holdIsDrawn = false
+        pace()
+    }
+
+    /// Idle behaviours are filler and run at 60 frames a second, which is
+    /// what they cost before. A reaction is rare and is the thing being
+    /// looked at, so it takes every frame the display has.
+    private func pace() {
+        let filler = performer.playingRank == .idle
+        link?.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: filler ? 60 : 120, preferred: filler ? 60 : 120)
     }
 
     @objc private func step(_ link: CADisplayLink) {
@@ -299,7 +308,8 @@ final class OwlDirector: NSObject {
 
 /// `PERCH_OWL_TRACE=<file>` appends one JSON line per stretch of animation:
 /// how many frames it drew, the longest gap between two of them against the
-/// display's own interval, and what drawing cost. It is how "no dropped
+/// display's own interval, how many gaps were long enough to see, and what
+/// drawing cost. It is how "no dropped
 /// frames" gets measured on the real menu bar instead of assumed.
 private struct FrameTrace {
     var label = ""
@@ -327,6 +337,8 @@ private struct FrameTrace {
             "interval_ms": (interval * 1000 * 100).rounded() / 100,
             "max_gap_ms": (gaps.max()! * 1000 * 100).rounded() / 100,
             "late_frames": gaps.filter { $0 > interval * 1.5 }.count,
+            // A gap this long is a frame missing even at 60 a second.
+            "gaps_over_25ms": gaps.filter { $0 > 0.025 }.count,
             "draw_ms_median": (sorted[sorted.count / 2] * 1000 * 1000).rounded() / 1000,
             "draw_ms_max": (sorted.last! * 1000 * 1000).rounded() / 1000,
         ]

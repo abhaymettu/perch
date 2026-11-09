@@ -53,15 +53,15 @@ struct OwlPose: Equatable {
             }
         }
 
-        /// What counts as arrived, in the channel's own units. Small enough
-        /// that the last frame before the owl stops is under a tenth of a
-        /// pixel from the resting one.
+        /// What counts as arrived, in the channel's own units: about a tenth
+        /// of a pixel on the glyph. Tighter than that and the display link
+        /// keeps running through a tail nobody can see.
         var tolerance: CGFloat {
             switch self {
-            case .turn, .nod, .tilt: 0.002
-            case .lean, .lift: 0.01
-            case .squash, .puff: 0.001
-            case .lid, .cheek, .alarm: 0.004
+            case .turn, .nod, .tilt: 0.006
+            case .lean, .lift: 0.05
+            case .squash, .puff: 0.0035
+            case .lid, .cheek, .alarm: 0.012
             }
         }
     }
