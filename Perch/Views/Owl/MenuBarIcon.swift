@@ -86,7 +86,12 @@ enum MenuBarIcon {
         return context.makeImage()
     }
 
-    private static let amber: [CGFloat] = [1, 208 / 255, 120 / 255]
+    /// The body with a problem: Okabe-Ito orange at the foot, lighter at the
+    /// crown, and close to solid. As a thin wash over the bar it took the
+    /// wallpaper's colour and stopped being amber on anything but black.
+    private static let amber: (crown: [CGFloat], foot: [CGFloat]) = ([1, 0.77, 0.32], [0.9, 0.62, 0])
+    /// Eyes and beak on amber. White ones vanish into it.
+    private static let amberInk: [CGFloat] = [0.2, 0.11, 0]
 
     private static func draw(_ pose: OwlPose, isDarkMenuBar: Bool, in context: CGContext) {
         let face = faceRect(for: pose)
@@ -106,25 +111,29 @@ enum MenuBarIcon {
         // The body tint inverts with the bar: light glass reads on a dark bar,
         // dark glass on a light one. It is thin on purpose. The bar is already
         // blurring the desktop, and this layer only has to let that through.
-        // A problem mixes the tint toward amber rather than switching to it,
-        // so the colour arrives over a few frames.
+        // A problem mixes the glass toward solid amber rather than switching
+        // to it, so the colour arrives over a few frames, and the eyes and
+        // beak go dark on it. That flip is what still says "problem" to
+        // someone who cannot tell amber from grey.
         let ink: CGFloat = isDarkMenuBar ? 1 : 0
         let alarm = min(max(pose.alarm, 0), 1)
-        let tint = amber.map { ink + ($0 - ink) * alarm }
+        func mix(_ from: CGFloat, _ to: CGFloat) -> CGFloat { from + (to - from) * alarm }
+        let crown = color(amber.crown.map { mix(ink, $0) }, mix(0.26, 0.94))
+        let foot = color(amber.foot.map { mix(ink, $0) }, mix(0.14, 0.9))
 
         context.saveGState()
         context.addPath(head)
         context.clip()
-        context.drawLinearGradient(gradient(color(tint, 0.26), color(tint, 0.14)),
+        context.drawLinearGradient(gradient(crown, foot),
                                    start: CGPoint(x: face.midX, y: face.minY),
                                    end: CGPoint(x: face.midX, y: face.maxY), options: [])
 
         // Eyes and beak are solid shapes on the glass, not holes in it: at
         // this body alpha a hole is as invisible as the glass around it. One
         // layer, so a beak sliding over an eye mid-turn does not double up.
-        context.setAlpha(0.55)
+        context.setAlpha(mix(0.55, 0.86))
         context.beginTransparencyLayer(auxiliaryInfo: nil)
-        context.setFillColor(color(white, 1))
+        context.setFillColor(color(amberInk.map { mix(1, $0) }, 1))
         for feature in features(for: pose, on: face) {
             context.addPath(feature)
         }

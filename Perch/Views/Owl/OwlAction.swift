@@ -16,6 +16,9 @@ struct OwlAction {
     struct Cue {
         enum Target: Equatable {
             case to(CGFloat)
+            /// There now, with no travel. For the one thing that must not
+            /// wait on a spring: the answer to a click.
+            case snap(CGFloat)
             /// Back to whatever the owl's state says it should be doing.
             case rest
             /// Whole turns past rest. Only the head's yaw goes round.
@@ -51,6 +54,10 @@ struct OwlAction {
             cues.append(Cue(time: time, channel: channel, target: .to(value), spring: spring))
         }
 
+        mutating func snap(_ time: TimeInterval, _ channel: OwlPose.Channel, _ value: CGFloat) {
+            cues.append(Cue(time: time, channel: channel, target: .snap(value), spring: .smooth(0.3)))
+        }
+
         mutating func rest(_ time: TimeInterval, _ channels: OwlPose.Channel..., spring: Spring) {
             for channel in channels {
                 cues.append(Cue(time: time, channel: channel, target: .rest, spring: spring))
@@ -65,12 +72,19 @@ struct OwlAction {
         /// asymmetry is most of what sells it as an eyelid. The target sits
         /// below shut so the lid arrives with speed and stays down for a beat
         /// instead of creeping onto the line.
-        mutating func blink(_ time: TimeInterval, reopenTo open: CGFloat? = nil) {
-            at(time, .lid, -0.3, .smooth(0.085))
+        ///
+        /// A lone blink is unhurried: shut for about 85 ms, then open again
+        /// through a couple of half-lidded frames. Faster and it reads as a
+        /// flicker. One of a pair is `quick`, over in half the time, because
+        /// two unhurried blinks in a row read as one long squint.
+        mutating func blink(_ time: TimeInterval, quick: Bool = false, reopenTo open: CGFloat? = nil) {
+            let hold = quick ? 0.05 : 0.07
+            let reopen = quick ? Spring(response: 0.15, damping: 0.86) : Spring.smooth(0.2)
+            at(time, .lid, quick ? -0.25 : -0.3, .smooth(quick ? 0.07 : 0.085))
             if let open {
-                at(time + 0.07, .lid, open, .smooth(0.2))
+                at(time + hold, .lid, open, reopen)
             } else {
-                rest(time + 0.07, .lid, spring: .smooth(0.2))
+                rest(time + hold, .lid, spring: reopen)
             }
         }
     }
@@ -177,6 +191,9 @@ struct OwlPerformer {
             switch cue.target {
             case .to(let value):
                 rig.aim(cue.channel, at: value, spring: cue.spring)
+                held.insert(cue.channel)
+            case .snap(let value):
+                rig.snap(cue.channel, to: value)
                 held.insert(cue.channel)
             case .rest:
                 rig.aim(cue.channel, at: rest, spring: cue.spring)

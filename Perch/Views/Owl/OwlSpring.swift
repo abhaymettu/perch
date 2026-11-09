@@ -116,6 +116,10 @@ struct OwlRig {
         channels[turn].aim(at: channels[turn].target + Double(revolutions) * 2 * .pi, spring: spring)
     }
 
+    mutating func snap(_ channel: OwlPose.Channel, to value: CGFloat) {
+        channels[channel.rawValue].snap(to: Double(value))
+    }
+
     mutating func snap(to pose: OwlPose) {
         for channel in OwlPose.Channel.allCases {
             channels[channel.rawValue].snap(to: Double(pose[channel]))

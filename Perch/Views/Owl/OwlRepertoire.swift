@@ -42,8 +42,9 @@ enum OwlRepertoire {
     static let blink = OwlAction("blink") { $0.blink(0) }
 
     static let doubleBlink = OwlAction("blink twice") {
-        $0.blink(0)
-        $0.blink(0.2)
+        // The eyes are fully open for a beat in between, or it is one long squint.
+        $0.blink(0, quick: true)
+        $0.blink(0.32, quick: true)
     }
 
     /// A look to one side and back: the owl checking something you can't see.
@@ -84,14 +85,20 @@ enum OwlRepertoire {
     /// only be a smaller glance, which is why the turn runs against it.
     static func parallax(toward side: CGFloat) -> OwlAction {
         OwlAction("parallax") {
-            let sway = Spring(response: 0.4, damping: 0.86)
-            $0.at(0, .lift, -0.5, .smooth(0.3))
-            $0.at(0, .lean, 2.5 * side, sway)
-            $0.at(0, .turn, -0.2 * side, sway)
-            $0.at(0.36, .lean, -2.5 * side, Spring(response: 0.5, damping: 0.86))
-            $0.at(0.36, .turn, 0.2 * side, Spring(response: 0.5, damping: 0.86))
-            $0.rest(0.82, .lean, .turn, spring: .settle(0.44))
-            $0.rest(0.86, .lift, spring: .settle(0.4))
+            // Out to one side, a held look, across to the other, a held look,
+            // home. The two holds are the point: a slide that never stops
+            // reads as drifting, and it is the stops that are measuring.
+            let out = Spring(response: 0.26, damping: 0.88)
+            let across = Spring(response: 0.3, damping: 0.88)
+            $0.at(0, .lift, -0.45, .smooth(0.26))
+            $0.at(0, .lid, 0.86, .smooth(0.2))
+            $0.at(0, .lean, 2.8 * side, out)
+            $0.at(0, .turn, -0.22 * side, out)
+            $0.at(0.36, .lean, -2.8 * side, across)
+            $0.at(0.36, .turn, 0.22 * side, across)
+            $0.rest(0.76, .lean, .turn, spring: .settle(0.3))
+            $0.rest(0.78, .lid, spring: .smooth(0.22))
+            $0.rest(0.8, .lift, spring: .settle(0.3))
         }
     }
 
@@ -226,8 +233,11 @@ enum OwlRepertoire {
 
     /// You clicked it. The head dips under the press, like a key.
     static let press = OwlAction("press", rank: .urgent) {
-        $0.at(0, .squash, 0.88, .smooth(0.09))
-        $0.rest(0.09, .squash, spring: Spring(response: 0.3, damping: 0.5))
+        // Down with the click, the way a key is: a press that eases in is
+        // still on its way while the panel is already opening. Only the
+        // letting go is a spring.
+        $0.snap(0, .squash, 0.9)
+        $0.rest(0.07, .squash, spring: Spring(response: 0.28, damping: 0.5))
     }
 
     /// You picked another account for the menu bar. The owl goes all the way
