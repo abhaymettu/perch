@@ -17,6 +17,12 @@ final class OwlDirector: NSObject {
     private var swap: (() -> Void)?
     /// A hold has been drawn, so the frames until its next cue are skipped.
     private var holdIsDrawn = false
+    /// Time the owl sat out because the main thread was busy. The first open
+    /// of the panel can hold a frame back for most of a second, and a clock
+    /// that ran on regardless would resume with the press already over.
+    private var stalled: CFTimeInterval = 0
+    /// A frame this late is a stall, not a dropped frame or two.
+    private static let longestStep: CFTimeInterval = 0.06
     private var trace = FrameTrace()
 
     static let idleKey = "owlIdles"
@@ -80,6 +86,13 @@ final class OwlDirector: NSObject {
     func pressed() {
         guard !isDemo else { return }
         play(OwlRepertoire.press)
+        // The click opens the panel next, on this same turn of the run loop,
+        // and that would hold the pressed frame back until the panel is up.
+        // Put it on the glass first.
+        guard link != nil else { return }
+        draw()
+        button?.displayIfNeeded()
+        CATransaction.flush()
     }
 
     /// The number beside the owl moved.
@@ -153,10 +166,16 @@ final class OwlDirector: NSObject {
             // which is colour and not movement, fades while anyone can see it.
             settleSwap()
             performer.land(on: stance, fading: isVisible ? [.alarm] : [])
+            trace.label = "landed"
             return run()
         }
         performer.setStance(stance, spring: spring)
-        if let action { play(action) } else { run() }
+        if let action {
+            play(action)
+        } else {
+            if link == nil { trace.label = "stance" }
+            run()
+        }
     }
 
     private func play(_ action: OwlAction) {
@@ -165,6 +184,7 @@ final class OwlDirector: NSObject {
         catchUp()
         if action.name != OwlRepertoire.switchAccount.name { settleSwap() }
         performer.play(action)
+        trace.label = action.name
         run()
         pace()
     }
@@ -172,7 +192,7 @@ final class OwlDirector: NSObject {
     /// Brings the performer's clock to now before anything new is asked of
     /// it. After a rest that is a jump; mid-flight it is one small step.
     private func catchUp() {
-        let now = CACurrentMediaTime()
+        let now = CACurrentMediaTime() - stalled
         performer.resync(to: now)
         performer.advance(to: now)
     }
@@ -185,10 +205,12 @@ final class OwlDirector: NSObject {
         // The button's own link follows it from display to display and only
         // ticks while it is on screen. The bench hides the status item, so
         // there it borrows a screen's link instead.
-        let link = button?.window?.occlusionState.contains(.visible) == true
+        let onScreen = button?.window?.occlusionState.contains(.visible) == true
+        let link = onScreen
             ? button?.displayLink(target: self, selector: #selector(step))
             : (NSScreen.main ?? NSScreen.screens.first)?.displayLink(target: self, selector: #selector(step))
         guard let link else { return finish() }
+        trace.source = onScreen ? "view" : "screen"
         link.add(to: .main, forMode: .common)
         self.link = link
         holdIsDrawn = false
@@ -206,7 +228,14 @@ final class OwlDirector: NSObject {
     @objc private func step(_ link: CADisplayLink) {
         // Posed for the moment the frame will be on the glass, not the moment
         // it is drawn.
-        performer.advance(to: link.targetTimestamp)
+        let entered = CACurrentMediaTime()
+        // A late frame or two lands where it should have been, which is what
+        // the springs are for. After a real stall the owl picks up where it
+        // was instead, one frame on, so the move it was making is still seen.
+        let interval = link.targetTimestamp - link.timestamp
+        let behind = link.targetTimestamp - stalled - performer.clock
+        if behind > Self.longestStep { stalled += behind - interval }
+        performer.advance(to: link.targetTimestamp - stalled)
 
         if swap != nil, performer.pose.hidesFace || performer.playingName != OwlRepertoire.switchAccount.name {
             settleSwap()
@@ -217,7 +246,7 @@ final class OwlDirector: NSObject {
             draw()
             holdIsDrawn = performer.isHolding
         }
-        trace.note(link, drawTime: CACurrentMediaTime() - started)
+        trace.note(link, pose: performer.pose, entered: entered, drawTime: CACurrentMediaTime() - started)
 
         if performer.isResting { finish() }
     }
@@ -225,6 +254,7 @@ final class OwlDirector: NSObject {
     private func finish() {
         link?.invalidate()
         link = nil
+        stalled = 0
         settleSwap()
         draw()
         trace.flush()
@@ -307,40 +337,56 @@ final class OwlDirector: NSObject {
 }
 
 /// `PERCH_OWL_TRACE=<file>` appends one JSON line per stretch of animation:
-/// how many frames it drew, the longest gap between two of them against the
-/// display's own interval, how many gaps were long enough to see, and what
-/// drawing cost. It is how "no dropped
-/// frames" gets measured on the real menu bar instead of assumed.
+/// how many frames it drew and at what rate, the longest gap between two of
+/// them, how many gaps were a frame missing, how late the main thread got to
+/// a frame, and what drawing cost. It is how "no dropped frames" gets
+/// measured on the real menu bar instead of assumed.
 private struct FrameTrace {
     var label = ""
+    /// Whose display link drove the stretch: the status button's or a screen's.
+    var source = ""
     private let path = ProcessInfo.processInfo.environment["PERCH_OWL_TRACE"]
     private var last: CFTimeInterval?
     private var gaps: [Double] = []
     private var draws: [Double] = []
-    private var interval: Double = 0
+    private var lag: Double = 0
+    private var first: OwlPose?
+    /// Anything but the tint changed. Under Reduce Motion nothing may.
+    private var moved = false
 
-    mutating func note(_ link: CADisplayLink, drawTime: CFTimeInterval) {
+    /// The slowest the link is ever asked to run is 60 a second, so a gap of
+    /// more than a frame and a half at that rate is a frame nobody drew.
+    private static let missing = 1.5 / 60
+
+    mutating func note(_ link: CADisplayLink, pose: OwlPose, entered: CFTimeInterval, drawTime: CFTimeInterval) {
         guard path != nil else { return }
+        var still = pose
+        still.alarm = 0
+        if let first { moved = moved || still != first } else { first = still }
         if let last { gaps.append(link.timestamp - last) }
         last = link.timestamp
-        interval = link.targetTimestamp - link.timestamp
+        // A link that skips a tick with the main thread free is the display
+        // pacing itself. One that arrives long after its tick was kept waiting.
+        lag = max(lag, entered - link.timestamp)
         draws.append(drawTime)
     }
 
     mutating func flush() {
-        defer { (last, gaps, draws) = (nil, [], []) }
+        defer { (last, gaps, draws, lag, first, moved) = (nil, [], [], 0, nil, false) }
         guard let path, !gaps.isEmpty else { return }
         let sorted = draws.sorted()
+        func ms(_ seconds: Double) -> Double { (seconds * 1000 * 100).rounded() / 100 }
         let line: [String: Any] = [
             "action": label,
+            "link": source,
+            "moved": moved,
             "frames": draws.count,
-            "interval_ms": (interval * 1000 * 100).rounded() / 100,
-            "max_gap_ms": (gaps.max()! * 1000 * 100).rounded() / 100,
-            "late_frames": gaps.filter { $0 > interval * 1.5 }.count,
-            // A gap this long is a frame missing even at 60 a second.
-            "gaps_over_25ms": gaps.filter { $0 > 0.025 }.count,
-            "draw_ms_median": (sorted[sorted.count / 2] * 1000 * 1000).rounded() / 1000,
-            "draw_ms_max": (sorted.last! * 1000 * 1000).rounded() / 1000,
+            "fps": (Double(gaps.count) / gaps.reduce(0, +) * 10).rounded() / 10,
+            "max_gap_ms": ms(gaps.max()!),
+            "missing_frames": gaps.filter { $0 > Self.missing }.count,
+            "main_thread_lag_ms_max": ms(lag),
+            "draw_ms_median": ms(sorted[sorted.count / 2]),
+            "draw_ms_max": ms(sorted.last!),
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: line, options: [.sortedKeys]),
               let handle = FileHandle(forWritingAtPath: path) ?? {
