@@ -225,7 +225,10 @@ final class OwlDirector: NSObject {
     /// looked at, so it takes every frame the display has.
     private func pace() {
         let filler = performer.playingRank == .idle
-        link?.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: filler ? 60 : 120, preferred: filler ? 60 : 120)
+        // The ceiling stays at 120 either way. Capped at 60 on a 120 Hz panel
+        // the link held one frame for 29 ms whenever the display shifted its
+        // phase; with headroom it realigns within a refresh.
+        link?.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: filler ? 60 : 120)
     }
 
     @objc private func step(_ link: CADisplayLink) {
