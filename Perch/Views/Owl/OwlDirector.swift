@@ -112,8 +112,11 @@ final class OwlDirector: NSObject {
     }
 
     private func settleSwap() {
-        swap?()
+        // Cleared first: the swap updates the title, which can ask the owl
+        // for a reaction, which settles the swap.
+        let owed = swap
         swap = nil
+        owed?()
     }
 
     // MARK: - Pointer
@@ -305,6 +308,11 @@ final class OwlDirector: NSObject {
     /// The menu bar came back into view, or Reduce Motion was switched.
     @objc private func conditionsChanged(_ notification: Notification) {
         if let window = notification.object as? NSWindow, window !== button?.window { return }
+        if link != nil, !isDemo, !canMove {
+            // Caught mid-move. It stops here, on the state it was heading for.
+            settleSwap()
+            performer.land(on: performer.stance, fading: isVisible ? [.alarm] : [])
+        }
         if link == nil, idleTimer == nil { scheduleIdle() }
     }
 
