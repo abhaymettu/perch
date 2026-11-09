@@ -181,11 +181,12 @@ final class OwlDirector: NSObject {
         idleTimer = nil
         guard link == nil else { return }
 
-        // The button's own link follows it from display to display and stops
-        // when it is off screen. A hidden status item has no window to ask.
-        let link = button?.window != nil
+        // The button's own link follows it from display to display and only
+        // ticks while it is on screen. The bench hides the status item, so
+        // there it borrows a screen's link instead.
+        let link = button?.window?.occlusionState.contains(.visible) == true
             ? button?.displayLink(target: self, selector: #selector(step))
-            : NSScreen.main?.displayLink(target: self, selector: #selector(step))
+            : (NSScreen.main ?? NSScreen.screens.first)?.displayLink(target: self, selector: #selector(step))
         guard let link else { return finish() }
         link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 120)
         link.add(to: .main, forMode: .common)

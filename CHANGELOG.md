@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- The owl moves on springs now. Every behaviour can interrupt any other and carry on from where the
+  head was, and the menu bar's refresh rate sets the frame rate.
+- New things it does: tilts its head, shakes its feathers, wakes up and dozes off, looks at the
+  number when it changes, does a double take at a warning, breathes out when a problem clears,
+  cheers a new week, dips when clicked, looks down at the open panel, follows the pointer, and
+  turns all the way round when you pick another account.
+- A blink closes like an eyelid instead of squeezing the eye flat.
+- Drawn with Core Graphics instead of a SwiftUI image renderer.
+- Reduce Motion stops all movement, the startle included.
+
 ## 2.0 (2026-11-03)
 
 - Perch is now a Claude usage app. The full panel (sessions, dev servers, LaunchAgents, cron,

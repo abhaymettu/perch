@@ -39,6 +39,12 @@ for scene in OwlRepertoire.catalogue where wanted.isEmpty || wanted.contains(sce
     index.append(["name": scene.name, "slug": slug, "frames": poses.count,
                   "seconds": Double(poses.count) / fps])
 }
+// The three resting looks, for comparing a renderer change against the last one.
+for (bar, dark) in [("dark", true), ("light", false)] {
+    for (name, stance) in [("rest", OwlStance(awake: true)), ("doze", OwlStance()), ("alert", OwlStance(awake: true, alert: true))] {
+        write(MenuBarIcon.bitmap(pose: stance.pose, isDarkMenuBar: dark, pixelsPerPoint: 16)!, to: "\(out)/\(name)-\(bar).png")
+    }
+}
 let json = try! JSONSerialization.data(withJSONObject: ["fps": fps, "scenes": index], options: [.prettyPrinted])
 try! json.write(to: URL(fileURLWithPath: "\(out)/index.json"))
 print("\(index.count) scenes at \(Int(fps)) fps in \(out)")

@@ -93,22 +93,41 @@ does not ship the poller; anything that writes this file works.
 </p>
 
 The glyph is not an image asset. A status item is a 22 pt bitmap, which rules out Lottie, GIF and
-SVG, so the owl is a vector drawing re-rendered each frame.
+SVG, so the owl is a vector drawing, redrawn for every frame it moves and not at all while it sits
+still.
 
-Mostly it sits still. Every few seconds it plays one short behaviour and goes back to rest:
-usually a blink, sometimes a glance to one side, sometimes a slow sideways bob with the face held
-level, and about one time in seven a full head turn. Its features ride a cylinder inside the
-head, so a turn foreshortens the eyes and carries the far one out of sight. Halfway round you are
-looking at the back of its head.
+Each part of the pose (the turn of the head, its tilt, the eyelids, the amber tint) rides its own
+spring, and a behaviour is a short score that tells the springs where to go. Nothing is a fixed
+keyframe, so one behaviour can cut into another and the head carries on from wherever it was. Its
+features ride a cylinder inside the head, so a turn foreshortens the eyes and carries the far one
+out of sight. Halfway round you are looking at the back of its head.
+
+Mostly it sits still. Every few seconds it does one small thing and goes back to rest: usually a
+blink, sometimes a glance to one side, a tilt of the head, a slow sideways sway with the face held
+level, a shake of its feathers, and now and then a full turn.
 
 <p align="center">
-  <img src=".github/owl.png" width="640" alt="Filmstrips of the owl's idle behaviours: swivel, peek, bob, blink and startle" />
+  <img src=".github/owl.png" width="640" alt="Filmstrips of the owl tilting its head, startling, and cheering a new week" />
 </p>
 
-Before the first reading, and while the account you picked is signed out, the eyes sit half
-shut. When a reading goes stale or a window turns critical, the owl startles and turns amber
-until you deal with it. That is the only motion in the app that means anything. Idle motion
-stops under Reduce Motion and whenever nobody can see the menu bar.
+The rest of what it does means something:
+
+| The owl | What happened |
+|---|---|
+| Sits with its eyes half shut | No reading yet, or the account you picked is signed out |
+| Wakes: lids lift, two blinks, a stretch | The first reading arrived |
+| Looks at the number | The percent beside it just changed |
+| Looks, looks away, looks again with wide eyes | The week crossed into warning |
+| Startles and turns amber | A window turned critical, or the reading went stale |
+| Shuts its eyes and breathes out | The problem cleared |
+| Hops twice, eyes arched | The week rolled over |
+| Dips, then looks down | You clicked it, and the panel is open underneath |
+| Turns all the way round | You picked another account. Its number lands while the owl's back is turned |
+| Follows your pointer | The pointer is over it |
+
+Under Reduce Motion nothing moves: the owl goes straight to each state and only the amber tint
+fades in. Idle motion also stops whenever nobody can see the menu bar. `Scripts/owl-clips.sh out`
+films every behaviour from the same code the menu bar runs.
 
 ## The iOS widget
 
