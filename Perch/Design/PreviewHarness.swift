@@ -11,6 +11,7 @@ struct PreviewScenario {
     var stale = false
     var accounts: [AccountUsage] = []
     var menuBarAccount: String?
+    var noSleep = false
 }
 
 extension PreviewScenario {
@@ -51,7 +52,8 @@ extension PreviewScenario {
 
     static let accounts = PreviewScenario(name: "accounts", accounts: pair())
 
-    static let mainPicked = PreviewScenario(name: "main picked", accounts: pair(), menuBarAccount: "acct1")
+    static let mainPicked = PreviewScenario(name: "main picked", accounts: pair(), menuBarAccount: "acct1",
+                                            noSleep: true)
 
     static let mainSignedOut = PreviewScenario(name: "main signed out", accounts: pair(main: mainSignedOutRow),
                                                menuBarAccount: "acct2")
@@ -86,6 +88,7 @@ enum PreviewHarness {
     /// the button's 11pt medium monospaced-digit font, on a bar-coloured strip.
     private struct BarItem: View {
         let monitor: LimitsMonitor
+        let noSleep: Bool
         let dark: Bool
 
         var body: some View {
@@ -94,12 +97,24 @@ enum PreviewHarness {
                                                   isDarkMenuBar: dark))
                 Text(monitor.menuBarTitle)
                     .font(.system(size: 11, weight: .medium).monospacedDigit())
-                    .foregroundStyle(dark ? Color.white : Color.black)
+                if noSleep {
+                    NoSleepCup()
+                }
             }
+            .foregroundStyle(dark ? Color.white : Color.black)
             .padding(.horizontal, 8)
             .frame(height: 24)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(dark ? Color(hex: 0x1B1B1F) : Color(hex: 0xE9E9EC))
+        }
+    }
+
+    /// The bar's No Sleep cup as `MenuBarController.titleWithCup` draws it.
+    private struct NoSleepCup: View {
+        var body: some View {
+            Image(systemName: "cup.and.saucer.fill")
+                .font(.system(size: 10, weight: .semibold))
+                .padding(.leading, 1)
         }
     }
 
@@ -110,15 +125,15 @@ enum PreviewHarness {
         let gap: CGFloat = 26
         let scenarios = PreviewScenario.all
         let width = (UsagePopup.panelWidth + gap) * CGFloat(scenarios.count) + gap
-        let height: CGFloat = 420
+        let height: CGFloat = 470
 
         let content = HStack(alignment: .top, spacing: gap) {
                 ForEach(scenarios, id: \.name) { scenario in
                     let monitor = scenario.monitor
                     VStack(spacing: 7) {
-                        BarItem(monitor: monitor, dark: true)
-                        BarItem(monitor: monitor, dark: false)
-                        UsagePopup(monitor: monitor)
+                        BarItem(monitor: monitor, noSleep: scenario.noSleep, dark: true)
+                        BarItem(monitor: monitor, noSleep: scenario.noSleep, dark: false)
+                        UsagePopup(monitor: monitor, noSleep: NoSleep(frozen: scenario.noSleep))
                             .fixedSize(horizontal: false, vertical: true)
                         Text(scenario.name.uppercased())
                             .font(.system(size: 9, weight: .semibold, design: .monospaced))
@@ -167,7 +182,7 @@ enum PreviewHarness {
         let monitor = (ProcessInfo.processInfo.environment["PERCH_HERO"] == "hot"
             ? PreviewScenario.mainPicked : PreviewScenario.accounts).monitor
         let dark = !isLight
-        let size = CGSize(width: 520, height: 330)
+        let size = CGSize(width: 520, height: 380)
         // The real popover opens at the status item's left edge.
         let panelLeading: CGFloat = 112
 
@@ -186,6 +201,7 @@ enum PreviewHarness {
                         Image(nsImage: MenuBarIcon.render(pose: OwlStance(awake: true, alert: monitor.owlAlert).pose, isDarkMenuBar: dark))
                         Text(monitor.menuBarTitle)
                             .font(.system(size: 11, weight: .medium).monospacedDigit())
+                        NoSleepCup()
                     }
                     .padding(.horizontal, 5)
                     .frame(height: 22)
@@ -202,7 +218,7 @@ enum PreviewHarness {
                 .frame(height: 30)
                 .background(Color.primary.opacity(0.06))
 
-                UsagePopup(monitor: monitor)
+                UsagePopup(monitor: monitor, noSleep: NoSleep(frozen: true))
                     .frame(width: UsagePopup.panelWidth)
                     .fixedSize(horizontal: false, vertical: true)
                     .shadow(color: .black.opacity(dark ? 0.45 : 0.18), radius: 22, y: 12)

@@ -27,6 +27,10 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var panel: NSPanel!
     private let usage = LimitsMonitor()
+    private let noSleep = NoSleep()
+    /// What the button last drew, so an unchanged second costs a compare.
+    private var shownTitle: String?
+    private var shownNoSleep = false
     private var eventMonitor: Any?
     private var owl: OwlDirector!
     /// The number the owl last saw, so it can tell when it moves.
@@ -46,6 +50,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         LimitsMonitor.selfCheck()
         MenuBarIcon.selfCheck()
         Task { await Shell.selfCheck() }
+        Task { await NoSleep.selfCheck() }
 
         if PreviewHarness.isEnabled {
             // A shot never shows a Dock icon or a window; see PreviewHarness.
@@ -72,7 +77,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         // `.intrinsicContentSize` leaves the window stale. `syncPanelHeight`
         // pulls the size instead.
         let hostingController = NSHostingController(rootView:
-            UsagePopup(monitor: usage)
+            UsagePopup(monitor: usage, noSleep: noSleep)
         )
         // Empty, not the AppKit default: with any sizing option set,
         // NSHostingView recomputes the window's content-size extrema on every
@@ -263,8 +268,17 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         // Empty string, not nil: AppKit keeps the old title otherwise.
         guard !titleIsHeld else { return }
         let title = usage.menuBarTitle
-        if statusItem.button?.title != title {
-            statusItem.button?.title = title
+        let noSleepOn = noSleep.isOn == true
+        if title != shownTitle || noSleepOn != shownNoSleep, let button = statusItem.button {
+            shownTitle = title
+            shownNoSleep = noSleepOn
+            if noSleepOn {
+                button.attributedTitle = Self.titleWithCup(title, font: button.font)
+                button.toolTip = "No Sleep is on: the Mac stays awake with the lid closed"
+            } else {
+                button.title = title
+                button.toolTip = nil
+            }
         }
 
         // The owl looks at the number when it moves. A reading that vanishes
@@ -275,8 +289,27 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         lastReading = reading
     }
 
+    /// No Sleep's mark in the bar: a full cup after the number, the same cup
+    /// the panel's switch shows. A shape, so it reads without colour. A
+    /// template image, so the bar tints it like the text beside it.
+    private static func titleWithCup(_ title: String, font: NSFont?) -> NSAttributedString {
+        let font = font ?? .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        let text = NSMutableAttributedString(string: title.isEmpty ? "" : title + " ", attributes: [.font: font])
+        let cup = NSImage(systemSymbolName: "cup.and.saucer.fill", accessibilityDescription: "No Sleep is on")?
+            .withSymbolConfiguration(.init(pointSize: 10, weight: .semibold))
+        guard let cup else { return text }
+        cup.isTemplate = true
+        let attachment = NSTextAttachment()
+        attachment.image = cup
+        // Centred on the digits' cap height, not sat on the baseline.
+        attachment.bounds = CGRect(x: 0, y: ((font.capHeight - cup.size.height) / 2).rounded(),
+                                   width: cup.size.width, height: cup.size.height)
+        text.append(NSAttributedString(attachment: attachment))
+        return text
+    }
+
     /// The title only changes when a fetch lands or state.json is rewritten,
-    /// so this is a stat and a cheap string compare once a second. The owl is awake while usage is
+    /// so this is a stat, a registry read and a cheap string compare once a second. The owl is awake while usage is
     /// readable and amber when a window is critical or the fetch is failing;
     /// both setters ignore an unchanged value.
     @MainActor
@@ -287,6 +320,8 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
                 guard let self else { return }
                 // Title and cards both follow state.json; it is re-read the second the poller writes it.
                 self.usage.reloadAccountsIfChanged()
+                // Followed, never assumed: a pmset from a terminal shows here within the second.
+                self.noSleep.refresh()
                 self.owl.setAwake(self.usage.owlAwake)
                 self.owl.setAlert(self.usage.owlAlert)
                 self.updateQuotaTitle()

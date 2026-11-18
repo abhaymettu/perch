@@ -1,13 +1,14 @@
 import SwiftUI
 
 /// The whole panel: one section per account (or the single signed-in
-/// account's windows), then a footer with freshness and the app's few
-/// settings. Nothing else is scanned or shown.
+/// account's windows), the No Sleep switch, then a footer with freshness and
+/// the app's few settings. Nothing else is scanned or shown.
 struct UsagePopup: View {
     static let panelWidth: CGFloat = 316
     static let minHeight: CGFloat = 96
 
     let monitor: LimitsMonitor
+    let noSleep: NoSleep
 
     @State private var launchAtLogin = LoginItem.isEnabled
     @State private var height: CGFloat = minHeight
@@ -27,6 +28,13 @@ struct UsagePopup: View {
                     }
                 }
                 .padding(6)
+
+                if noSleep.isOn != nil {
+                    PerchHairline()
+                    NoSleepRow(noSleep: noSleep)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                }
 
                 PerchHairline()
                 footer(now: context.date)
@@ -58,6 +66,7 @@ struct UsagePopup: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .perchPanelWillOpen)) { _ in
             launchAtLogin = LoginItem.isEnabled
+            noSleep.refresh()
         }
         .onChange(of: launchAtLogin) { _, enabled in
             do { try LoginItem.setEnabled(enabled) } catch { launchAtLogin = LoginItem.isEnabled }
