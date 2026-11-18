@@ -12,8 +12,11 @@ build with the full panel (sessions, servers, agents, cron, simulators) lives at
   multi-account feed at `~/.local/state/perch-usage/state.json`, the menu bar title and the owl's
   awake and alert states.
 - `Perch/Services/Shell.swift`: subprocesses, with a 10 s watchdog. `LoginItem.swift`: start at login.
+- `Perch/Services/NoSleep.swift`: the No Sleep switch. Reads `SleepDisabled` from the IOKit
+  registry on the 1 s timer (no subprocess), sets it with `sudo -n pmset -a disablesleep`, then
+  the administrator prompt, and reads it back after every change. Never cache the state.
 - `Perch/Views`: `UsagePopup` (the panel), `AccountCards` (several accounts), `UsageStrip` (one
-  account).
+  account), `NoSleepRow` (the switch row).
 - `Perch/Views/Owl`: the menu bar owl. `OwlPose` (the pose and the stance each app state rests in),
   `OwlSpring` (one closed-form spring per pose channel), `OwlAction` (an action is a score of cues;
   `OwlPerformer` plays them), `OwlRepertoire` (every action, and the catalogue of scenes),
@@ -37,7 +40,7 @@ Scripts/bench.py 120                                  # CPU, memory, wakeups of 
 logs, per stretch of motion, which display link drove it, the frame rate, missing frames, how late
 the main thread got to a frame, and draw times.
 
-Debug builds run `selfCheck()` assertions at launch (`LimitsMonitor`, `MenuBarIcon`, `Shell`). A
+Debug builds run `selfCheck()` assertions at launch (`LimitsMonitor`, `MenuBarIcon`, `Shell`, `NoSleep`). A
 failed assertion crashes the harness before it writes a PNG, which is the test failure. Run a
 Debug build after touching any of those files.
 

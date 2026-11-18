@@ -17,7 +17,7 @@ use, and when each one resets.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset=".github/hero-dark.png" />
-    <img src=".github/hero-light.png" width="520" alt="The Perch popover under its menu bar owl: two Claude accounts, each with its plan beside the name, the week's percent used, when it resets, and the Fable week underneath" />
+    <img src=".github/hero-light.png" width="520" alt="The Perch popover under its menu bar owl: two Claude accounts, each with its plan beside the name, the week's percent used, when it resets, and the Fable week underneath, then the No Sleep switch turned on, with a cup beside the number in the menu bar" />
   </picture>
 </p>
 
@@ -86,6 +86,28 @@ changes, and switches to the account list once the file holds more than one acco
 account signed out of this Mac. Missing pieces drop out rather than failing the file. Perch
 does not ship the poller; anything that writes this file works.
 
+## No Sleep
+
+I close the lid with agents still running, and a sleeping Mac stops them. The No Sleep switch
+under the accounts keeps the Mac awake, lid closed included. While it is on, a small cup sits
+after the number in the menu bar. Turn it off and the Mac sleeps as usual. It is new in 2.2, so
+the 2.1 download does not have it yet; build from source for now.
+
+It is the system's own setting, the one `sudo pmset -a disablesleep 1` changes. It stays on after
+Perch quits, and a change made in Terminal shows in Perch within a second, because Perch reads
+the setting from the power manager instead of remembering what it last set. A `caffeinate`-style
+assertion would not be enough: it stops the Mac dozing off, but closing the lid still sleeps it.
+
+Changing it needs root. Perch first tries `sudo -n`, which needs no password when your sudo rules
+allow pmset, and otherwise shows the system's administrator prompt each time. To skip the prompt,
+add this with `sudo visudo -f /etc/sudoers.d/perch`:
+
+```
+%admin ALL=(root) NOPASSWD: /usr/bin/pmset -a disablesleep 0, /usr/bin/pmset -a disablesleep 1
+```
+
+Turn it off before the Mac goes in a bag. With the lid shut it keeps running, and it warms up.
+
 ## The owl
 
 <p align="center">
@@ -148,6 +170,7 @@ pointing at it.
 | Usage, several accounts | `~/.local/state/perch-usage/state.json` | Nowhere |
 | Your default model name | `~/.claude/settings.json` | Nowhere |
 | Widget copy | Written to Scriptable's iCloud folder, if it exists | Your iCloud Drive |
+| No Sleep | Read from the power manager (`SleepDisabled` on `IOPMrootDomain`), changed with `/usr/bin/pmset` | Nowhere |
 
 The usage request is the only network call Perch makes. It runs whether you watch one account
 or several.

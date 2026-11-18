@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2 (unreleased)
+
+- No Sleep: a switch in the panel keeps the Mac awake with the lid closed. It is the setting
+  `pmset -a disablesleep` changes, read from the power manager once a second, so a change made
+  in Terminal shows too.
+- Turning it on or off uses `sudo -n` when your sudo rules allow it and the administrator prompt
+  otherwise. Cancelling the prompt leaves the switch where it was.
+- While No Sleep is on, a cup sits after the number in the menu bar.
+
 ## 2.1 (2026-11-09)
 
 - The owl moves on springs now. Every behaviour can interrupt any other and carry on from where the
