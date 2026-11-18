@@ -27,7 +27,7 @@ plan, how much of the week is used and when it resets.
 
 ## Install
 
-Download `Perch-2.1.dmg` from [Releases](https://github.com/abhaymettu/perch/releases/latest) and
+Download `Perch-2.2.dmg` from [Releases](https://github.com/abhaymettu/perch/releases/latest) and
 drag it to Applications. Perch is not notarized yet (see [Limits](#limits)), so a downloaded copy
 needs one command before macOS will open it:
 
@@ -90,8 +90,7 @@ does not ship the poller; anything that writes this file works.
 
 I close the lid with agents still running, and a sleeping Mac stops them. The No Sleep switch
 under the accounts keeps the Mac awake, lid closed included. While it is on, a small cup sits
-after the number in the menu bar. Turn it off and the Mac sleeps as usual. It is new in 2.2, so
-the 2.1 download does not have it yet; build from source for now.
+after the number in the menu bar. Turn it off and the Mac sleeps as usual.
 
 It is the system's own setting, the one `sudo pmset -a disablesleep 1` changes. It stays on after
 Perch quits, and a change made in Terminal shows in Perch within a second, because Perch reads
@@ -215,7 +214,7 @@ xcodebuild -scheme Perch -configuration Release -derivedDataPath build build
 open build/Build/Products/Release/Perch.app
 ```
 
-Or open `Perch.xcodeproj` in Xcode 16 or later and run. `Scripts/release.sh 2.1` builds the zip
+Or open `Perch.xcodeproj` in Xcode 16 or later and run. `Scripts/release.sh 2.2` builds the zip
 and DMG for a release. Design work happens in a preview harness rather than the live popover:
 `./shot.sh out.png main` renders every state side by side to a PNG (add `PERCH_APPEARANCE=light`
 for light), and `PERCH_UI_PREVIEW=hero` renders the staged pictures in this README. See

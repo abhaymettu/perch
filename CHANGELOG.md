@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.2 (unreleased)
+## 2.2 (2026-11-17)
 
 - No Sleep: a switch in the panel keeps the Mac awake with the lid closed. It is the setting
   `pmset -a disablesleep` changes, read from the power manager once a second, so a change made
