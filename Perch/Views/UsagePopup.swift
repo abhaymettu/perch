@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// The whole panel: one section per account (or the single signed-in
-/// account's windows), the No Sleep switch, then a footer with freshness and
+/// account's windows), the No Sleep switch, the Send to switch when message
+/// targets are set up, then a footer with freshness and
 /// the app's few settings. Nothing else is scanned or shown.
 struct UsagePopup: View {
     static let panelWidth: CGFloat = 316
@@ -9,6 +10,7 @@ struct UsagePopup: View {
 
     let monitor: LimitsMonitor
     let noSleep: NoSleep
+    let targets: MessageTargets
 
     @State private var launchAtLogin = LoginItem.isEnabled
     @State private var height: CGFloat = minHeight
@@ -32,6 +34,14 @@ struct UsagePopup: View {
                 if noSleep.isOn != nil {
                     PerchHairline()
                     NoSleepRow(noSleep: noSleep)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                }
+
+                // Only for someone who set targets up: no file, no row.
+                if !targets.targets.isEmpty || targets.problem.map({ !$0.hasPrefix("No targets") }) == true {
+                    PerchHairline()
+                    SendToRow(targets: targets)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                 }
@@ -67,6 +77,7 @@ struct UsagePopup: View {
         .onReceive(NotificationCenter.default.publisher(for: .perchPanelWillOpen)) { _ in
             launchAtLogin = LoginItem.isEnabled
             noSleep.refresh()
+            targets.reload()
         }
         .onChange(of: launchAtLogin) { _, enabled in
             do { try LoginItem.setEnabled(enabled) } catch { launchAtLogin = LoginItem.isEnabled }

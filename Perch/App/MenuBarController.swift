@@ -28,6 +28,9 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     private var panel: NSPanel!
     private let usage = LimitsMonitor()
     private let noSleep = NoSleep()
+    private let targets = MessageTargets()
+    /// A send's result showing in the bar instead of the number, until then.
+    private var flashUntil: Date?
     /// What the button last drew, so an unchanged second costs a compare.
     private var shownTitle: String?
     private var shownNoSleep = false
@@ -51,6 +54,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         MenuBarIcon.selfCheck()
         Task { await Shell.selfCheck() }
         Task { await NoSleep.selfCheck() }
+        MessageTargets.selfCheck() // about 0.6 s, before the harness can write a PNG
 
         if PreviewHarness.isEnabled {
             // A shot never shows a Dock icon or a window; see PreviewHarness.
@@ -77,7 +81,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
         // `.intrinsicContentSize` leaves the window stale. `syncPanelHeight`
         // pulls the size instead.
         let hostingController = NSHostingController(rootView:
-            UsagePopup(monitor: usage, noSleep: noSleep)
+            UsagePopup(monitor: usage, noSleep: noSleep, targets: targets)
         )
         // Empty, not the AppKit default: with any sizing option set,
         // NSHostingView recomputes the window's content-size extrema on every
@@ -144,7 +148,55 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
             }
         }
 
+        // `Perch send` runs as its own process and reports here; so does a
+        // `Perch target` from a terminal, which the switch has to follow.
+        let distributed = DistributedNotificationCenter.default()
+        distributed.addObserver(forName: MessageTargets.messageSent, object: nil, queue: .main) { [weak self] note in
+            let info = note.userInfo as? [String: String] ?? [:]
+            guard let name = info["target"] else { return }
+            let result = SendResult(target: name, ok: info["ok"] == "1", detail: info["detail"] ?? "", at: Date())
+            MainActor.assumeIsolated { self?.showSent(result) }
+        }
+        distributed.addObserver(forName: MessageTargets.targetChanged, object: nil, queue: .main) { [weak self] _ in
+            self?.targets.reload()
+        }
+
         MainActor.assumeIsolated { startTitleUpdates() }
+    }
+
+    /// The bar says how a send went, in words with a mark beside them (a tick,
+    /// or a warning triangle), so it never rests on colour. Two and a half
+    /// seconds for a send that went, eight for one that did not.
+    @MainActor
+    private func showSent(_ result: SendResult) {
+        targets.record(result)
+        guard let button = statusItem.button else { return }
+        let font = button.font ?? .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        let symbol = result.ok ? "checkmark" : "exclamationmark.triangle.fill"
+        let text = NSMutableAttributedString()
+        if let mark = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
+            .withSymbolConfiguration(.init(pointSize: 9.5, weight: .bold)) {
+            mark.isTemplate = true
+            let attachment = NSTextAttachment()
+            attachment.image = mark
+            attachment.bounds = CGRect(x: 0, y: ((font.capHeight - mark.size.height) / 2).rounded(),
+                                       width: mark.size.width, height: mark.size.height)
+            text.append(NSAttributedString(attachment: attachment))
+            text.append(NSAttributedString(string: " ", attributes: [.font: font]))
+        }
+        text.append(NSAttributedString(string: result.headline, attributes: [.font: font]))
+        button.attributedTitle = text
+        button.toolTip = result.ok ? result.headline : "\(result.headline): \(result.detail)"
+        shownTitle = nil
+        let until = Date().addingTimeInterval(result.ok ? 2.5 : 8)
+        flashUntil = until
+        DispatchQueue.main.asyncAfter(deadline: .now() + until.timeIntervalSinceNow) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.flashUntil == until else { return }
+                self.flashUntil = nil
+                self.updateQuotaTitle()
+            }
+        }
     }
 
     @objc private func togglePanel() {
@@ -266,7 +318,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate {
     @MainActor
     private func updateQuotaTitle() {
         // Empty string, not nil: AppKit keeps the old title otherwise.
-        guard !titleIsHeld else { return }
+        guard !titleIsHeld, flashUntil == nil else { return }
         let title = usage.menuBarTitle
         let noSleepOn = noSleep.isOn == true
         if title != shownTitle || noSleepOn != shownNoSleep, let button = statusItem.button {

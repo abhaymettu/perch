@@ -12,6 +12,19 @@ struct PreviewScenario {
     var accounts: [AccountUsage] = []
     var menuBarAccount: String?
     var noSleep = false
+    var sendTo: [String] = []
+    var sentTo: SendResult?
+
+    var targets: MessageTargets {
+        let names = ProcessInfo.processInfo.environment["PERCH_TARGET_NAMES"]?.split(separator: ",").map(String.init) ?? sendTo
+        return MessageTargets(frozen: names.map { MessageTarget(name: $0, command: ["/usr/bin/true"]) },
+                              selected: names.last, lastResult: sentTo)
+    }
+
+    /// The README hero's two targets, generic: what anyone might send to.
+    static var heroTargets: MessageTargets {
+        PreviewScenario(name: "hero", sendTo: ["Phone", "Agent"]).targets
+    }
 }
 
 extension PreviewScenario {
@@ -53,10 +66,12 @@ extension PreviewScenario {
     static let accounts = PreviewScenario(name: "accounts", accounts: pair())
 
     static let mainPicked = PreviewScenario(name: "main picked", accounts: pair(), menuBarAccount: "acct1",
-                                            noSleep: true)
+                                            noSleep: true, sendTo: ["Phone", "Agent"])
 
     static let mainSignedOut = PreviewScenario(name: "main signed out", accounts: pair(main: mainSignedOutRow),
-                                               menuBarAccount: "acct2")
+                                               menuBarAccount: "acct2", sendTo: ["Phone", "Agent"],
+                                               sentTo: SendResult(target: "Agent", ok: false,
+                                                                  detail: "thread not found", at: Date()))
 
     /// The poller missed three polls while the Second account ran hot.
     static let secondStale = PreviewScenario(name: "second stale", accounts: pair(second: AccountUsage(
@@ -133,7 +148,7 @@ enum PreviewHarness {
                     VStack(spacing: 7) {
                         BarItem(monitor: monitor, noSleep: scenario.noSleep, dark: true)
                         BarItem(monitor: monitor, noSleep: scenario.noSleep, dark: false)
-                        UsagePopup(monitor: monitor, noSleep: NoSleep(frozen: scenario.noSleep))
+                        UsagePopup(monitor: monitor, noSleep: NoSleep(frozen: scenario.noSleep), targets: scenario.targets)
                             .fixedSize(horizontal: false, vertical: true)
                         Text(scenario.name.uppercased())
                             .font(.system(size: 9, weight: .semibold, design: .monospaced))
@@ -182,7 +197,7 @@ enum PreviewHarness {
         let monitor = (ProcessInfo.processInfo.environment["PERCH_HERO"] == "hot"
             ? PreviewScenario.mainPicked : PreviewScenario.accounts).monitor
         let dark = !isLight
-        let size = CGSize(width: 520, height: 380)
+        let size = CGSize(width: 520, height: 430)
         // The real popover opens at the status item's left edge.
         let panelLeading: CGFloat = 112
 
@@ -218,7 +233,7 @@ enum PreviewHarness {
                 .frame(height: 30)
                 .background(Color.primary.opacity(0.06))
 
-                UsagePopup(monitor: monitor, noSleep: NoSleep(frozen: true))
+                UsagePopup(monitor: monitor, noSleep: NoSleep(frozen: true), targets: PreviewScenario.heroTargets)
                     .frame(width: UsagePopup.panelWidth)
                     .fixedSize(horizontal: false, vertical: true)
                     .shadow(color: .black.opacity(dark ? 0.45 : 0.18), radius: 22, y: 12)
