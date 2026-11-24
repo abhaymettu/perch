@@ -17,7 +17,7 @@ use, and when each one resets.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset=".github/hero-dark.png" />
-    <img src=".github/hero-light.png" width="520" alt="The Perch popover under its menu bar owl: two Claude accounts, each with its plan beside the name, the week's percent used, when it resets, and the Fable week underneath, then the No Sleep switch turned on, with a cup beside the number in the menu bar" />
+    <img src=".github/hero-light.png" width="520" alt="The Perch popover under its menu bar owl: two Claude accounts, each with its plan beside the name, the week's percent used, when it resets, and the Fable week underneath, then the No Sleep switch turned on and the Send to switch set to Agent, with a cup beside the number in the menu bar" />
   </picture>
 </p>
 
@@ -34,6 +34,8 @@ needs one command before macOS will open it:
 ```sh
 xattr -dr com.apple.quarantine /Applications/Perch.app
 ```
+
+The 2.2 download does not have [Send to](#send-to) yet. Build from source (below) to get it.
 
 Requires macOS 14 (Sonoma) or later. The build is universal, Apple silicon and Intel.
 
@@ -107,6 +109,52 @@ add this with `sudo visudo -f /etc/sudoers.d/perch`:
 
 Turn it off before the Mac goes in a bag. With the lid shut it keeps running, and it warms up.
 
+## Send to
+
+I dictate short messages all day from one key, some to an assistant that texts me and some to an
+agent running on this Mac. The Send to switch picks where that key's messages go, so I flip it in
+the panel instead of keeping two keys in my head.
+
+Perch has no hotkey or text box of its own. It runs a command you pick. List your targets in
+`~/Library/Application Support/Perch/targets.json`:
+
+```json
+{
+  "targets": [
+    { "name": "Phone", "command": ["~/bin/text-my-phone"] },
+    { "name": "Agent", "command": ["/usr/local/bin/agent", "send"] }
+  ]
+}
+```
+
+Each command gets the message on stdin and runs directly, never through a shell. Exit 0 means it
+went. Any other exit means it did not: the last line the command wrote to stderr becomes the
+reason, and the message is saved in an `unsent` folder next to `targets.json`, so nothing you said
+is lost.
+
+Then point your hotkey tool (Hammerspoon, Raycast, Keyboard Maestro, a Shortcut) at the app's own
+binary:
+
+```sh
+PERCH=/Applications/Perch.app/Contents/MacOS/Perch
+echo "on my way" | $PERCH send            # to whatever the switch shows
+$PERCH send --to Agent "run the tests"    # one message to a named target
+$PERCH target                             # print the chosen target
+$PERCH target Phone                       # choose one, same as clicking the switch
+$PERCH targets                            # list them, the chosen one marked
+```
+
+After each send the menu bar says "Sent to Agent" next to a tick for a moment, or "Not sent to
+Agent" next to a warning triangle for longer, and the panel row keeps the reason. `send` exits 0
+when the message went, 1 when it did not, and 2 for a setup problem (no file, an unknown target,
+an empty message).
+
+A tool with its own text box can label it with where the text will go. Perch posts the
+distributed notification `com.abhaymettu.perch.messageTargetChanged`, with the new name under
+`target`, whenever the choice changes, and `com.abhaymettu.perch.messageSent` after every send.
+Messages come in on the command line rather than through a URL scheme, so a link on a web page
+cannot send anything. Until `targets.json` exists the row stays hidden.
+
 ## The owl
 
 <p align="center">
@@ -170,6 +218,7 @@ pointing at it.
 | Your default model name | `~/.claude/settings.json` | Nowhere |
 | Widget copy | Written to Scriptable's iCloud folder, if it exists | Your iCloud Drive |
 | No Sleep | Read from the power manager (`SleepDisabled` on `IOPMrootDomain`), changed with `/usr/bin/pmset` | Nowhere |
+| Send to | Your `targets.json`; a message is handed to the chosen target's command on stdin | Wherever that command sends it. Perch opens no connection for it |
 
 The usage request is the only network call Perch makes. It runs whether you watch one account
 or several.
@@ -214,11 +263,12 @@ xcodebuild -scheme Perch -configuration Release -derivedDataPath build build
 open build/Build/Products/Release/Perch.app
 ```
 
-Or open `Perch.xcodeproj` in Xcode 16 or later and run. `Scripts/release.sh 2.2` builds the zip
+Or open `Perch.xcodeproj` in Xcode 16 or later and run. `Scripts/release.sh 2.3` builds the zip
 and DMG for a release. Design work happens in a preview harness rather than the live popover:
 `./shot.sh out.png main` renders every state side by side to a PNG (add `PERCH_APPEARANCE=light`
 for light), and `PERCH_UI_PREVIEW=hero` renders the staged pictures in this README. See
-`Perch/Design/PreviewHarness.swift`.
+`Perch/Design/PreviewHarness.swift`. `Scripts/test-targets.sh` runs the Send to command line end to
+end against stand-in commands.
 
 Perch 1.3, the single-account build with the full panel (Claude sessions, dev servers,
 LaunchAgents, cron, simulators), is still on the [v1.3 tag](https://github.com/abhaymettu/perch/tree/v1.3).

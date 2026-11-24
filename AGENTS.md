@@ -15,8 +15,15 @@ build with the full panel (sessions, servers, agents, cron, simulators) lives at
 - `Perch/Services/NoSleep.swift`: the No Sleep switch. Reads `SleepDisabled` from the IOKit
   registry on the 1 s timer (no subprocess), sets it with `sudo -n pmset -a disablesleep`, then
   the administrator prompt, and reads it back after every change. Never cache the state.
+- `Perch/Services/MessageTargets.swift`: Send to. Targets come from
+  `~/Library/Application Support/Perch/targets.json` (or `PERCH_TARGETS_FILE`), the choice from the
+  `messageTarget` default. `deliver` runs a target's command with the text on stdin, never through
+  a shell, and keeps unsent text. Distributed notifications carry choice changes and send results.
+- `Perch/App/PerchCommand.swift`: `Perch send | target | targets`, run from `PerchMain` before
+  AppKit starts. No URL scheme on purpose: a web page must not be able to send.
 - `Perch/Views`: `UsagePopup` (the panel), `AccountCards` (several accounts), `UsageStrip` (one
-  account), `NoSleepRow` (the switch row).
+  account), `NoSleepRow` (the switch row), `SendToRow` (the target switch, hidden without a
+  targets file).
 - `Perch/Views/Owl`: the menu bar owl. `OwlPose` (the pose and the stance each app state rests in),
   `OwlSpring` (one closed-form spring per pose channel), `OwlAction` (an action is a score of cues;
   `OwlPerformer` plays them), `OwlRepertoire` (every action, and the catalogue of scenes),
@@ -34,13 +41,14 @@ xcodebuild -scheme Perch -configuration Debug build
 PERCH_APPEARANCE=light ./shot.sh /tmp/light.png main
 Scripts/owl-clips.sh /tmp/owl                         # every owl action as an mp4 and a contact sheet
 Scripts/bench.py 120                                  # CPU, memory, wakeups of a Release build
+Scripts/test-targets.sh                               # Send to command line against stand-in commands
 ```
 
 `PERCH_OWL_DEMO=1` plays the whole owl catalogue in the real menu bar, and `PERCH_OWL_TRACE=<file>`
 logs, per stretch of motion, which display link drove it, the frame rate, missing frames, how late
 the main thread got to a frame, and draw times.
 
-Debug builds run `selfCheck()` assertions at launch (`LimitsMonitor`, `MenuBarIcon`, `Shell`, `NoSleep`). A
+Debug builds run `selfCheck()` assertions at launch (`LimitsMonitor`, `MenuBarIcon`, `Shell`, `NoSleep`, `MessageTargets`). A
 failed assertion crashes the harness before it writes a PNG, which is the test failure. Run a
 Debug build after touching any of those files.
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.3 (2026-11-23)
+
+- Send to: a switch in the panel picks which message target a send key reaches. Targets are your
+  own commands, listed in `~/Library/Application Support/Perch/targets.json`; each gets the
+  message on stdin.
+- `Perch send`, `Perch target` and `Perch targets` on the app's binary, for Hammerspoon, Raycast
+  or any hotkey tool. `send` exits 0 sent, 1 not sent, 2 for a setup problem.
+- The menu bar says "Sent to" or "Not sent to" after each send, with a tick or a warning triangle,
+  and a message that did not go is kept in an `unsent` folder.
+- Distributed notifications when the choice changes and after each send, so a hotkey tool can
+  label its text box.
+
 ## 2.2 (2026-11-17)
 
 - No Sleep: a switch in the panel keeps the Mac awake with the lid closed. It is the setting
