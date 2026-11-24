@@ -12,7 +12,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TEST_ID="com.abhaymettu.perch.targets-test"
 WORK="$(mktemp -d)"
-trap 'rm -rf "$WORK"; defaults delete "$TEST_ID" >/dev/null 2>&1' EXIT
+trap 'rm -rf "$WORK"' EXIT
 
 APP="${1:-}"
 if [ -z "$APP" ]; then
@@ -22,6 +22,13 @@ if [ -z "$APP" ]; then
     APP="$WORK/dd/Build/Products/Debug/Perch.app"
 fi
 PERCH="$APP/Contents/MacOS/Perch"
+
+# The chosen target lives in the app's defaults: start from none, and never
+# on the shipping bundle id, whose choice belongs to whoever uses Perch.
+APP_ID="$(defaults read "$APP/Contents/Info.plist" CFBundleIdentifier)"
+[ "$APP_ID" != "com.abhaymettu.perch" ] || { echo "refusing the shipping bundle id; build with another" >&2; exit 2; }
+defaults delete "$APP_ID" >/dev/null 2>&1
+trap 'rm -rf "$WORK"; defaults delete "$APP_ID" >/dev/null 2>&1' EXIT
 export PERCH_TARGETS_FILE="$WORK/targets.json"
 
 fails=0
